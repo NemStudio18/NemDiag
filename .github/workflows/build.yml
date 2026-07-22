@@ -1,0 +1,43 @@
+name: Build Nemdiag for Linux
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install system dependencies (wgpu/X11)
+      run: sudo apt-get update && sudo apt-get install -y libx11-dev libwayland-dev libxkbcommon-dev
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-deb
+      run: cargo install cargo-deb
+
+    - name: Build project (Release)
+      run: cargo build --release
+
+    - name: Build .deb package
+      run: cargo deb
+
+    - name: Upload .deb Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: nemdiag-linux-deb
+        path: target/debian/*.deb
+
+    - name: Upload .deb to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: target/debian/*.deb

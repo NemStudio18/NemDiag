@@ -1,0 +1,18 @@
+[package]
+name = "nemdiag-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.35.0"
+pollster = "1.0.1"
+sysinfo = "0.39.6"
+wgpu = "30.0.0"
+
+[package.metadata.deb]
+maintainer = "Team <team@example.com>"
+copyright = "2026"
+license-file = "[]"
+extended-description = "Nemdiag Linux Hardware Diagnostics"
+depends = ""
+
