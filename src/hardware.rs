@@ -86,3 +86,40 @@ pub fn get_baseboard_info_sudo() -> Result<String, String> {
         Err(String::from_utf8_lossy(&output.stderr).to_string())
     }
 }
+
+pub fn get_smart_info(disk_path: &str) -> Result<String, String> {
+    let output = Command::new("pkexec")
+        .arg("smartctl")
+        .arg("-H")
+        .arg("-A")
+        .arg(disk_path)
+        .output()
+        .map_err(|e| format!("Failed to execute pkexec smartctl: {}", e))?;
+
+    // smartctl returns bitmask exit statuses, so we can't strictly check for success
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+use nvml_wrapper::Nvml;
+
+pub fn get_nvml_info() -> Vec<(String, u32, u32)> {
+    let mut nv_info = Vec::new();
+    match Nvml::init() {
+        Ok(nvml) => {
+            if let Ok(count) = nvml.device_count() {
+                for i in 0..count {
+                    if let Ok(device) = nvml.device_by_index(i) {
+                        let name = device.name().unwrap_or_else(|_| "Unknown NVIDIA GPU".to_string());
+                        let temp = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu).unwrap_or(0);
+                        let util = device.utilization_rates().map(|u| u.gpu).unwrap_or(0);
+                        nv_info.push((name, temp, util));
+                    }
+                }
+            }
+        },
+        Err(_) => {
+            // NVML not available or no NVIDIA GPU
+        }
+    }
+    nv_info
+}
