@@ -15,8 +15,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install system dependencies (wgpu/X11)
-      run: sudo apt-get update && sudo apt-get install -y libx11-dev libwayland-dev libxkbcommon-dev
+    - name: Install system dependencies (Tauri & wgpu)
+      run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libx11-dev libwayland-dev libxkbcommon-dev
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
