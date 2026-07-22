@@ -1,0 +1,27 @@
+{
+  "build": {
+    "frontendDist": "../ui",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "bundle": {
+    "icon": []
+  },
+  "identifier": "com.nemdiag.app",
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Nemdiag",
+        "width": 1000,
+        "height": 700,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}

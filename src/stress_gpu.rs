@@ -112,10 +112,14 @@ impl GpuStress {
 
                 passes += 1;
                 if last_update.elapsed().as_secs() >= 1 {
+                    // Update stats (simulated here)
                     fps_counter.store(passes, Ordering::Relaxed);
                     passes = 0;
                     last_update = Instant::now();
                 }
+
+                // Throttle to prevent completely freezing the desktop
+                std::thread::sleep(std::time::Duration::from_millis(2));
             }
         }));
     }
