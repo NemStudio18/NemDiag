@@ -13,6 +13,13 @@ pub struct HardwareInfo {
     pub swap_used: u64,
 }
 
+#[derive(serde::Serialize)]
+pub struct RealtimeInfo {
+    pub cpu_usage: f32,
+    pub memory_used: u64,
+    pub temperatures: Vec<(String, f32)>,
+}
+
 pub struct HardwareMonitor {
     sys: System,
     disks: Disks,

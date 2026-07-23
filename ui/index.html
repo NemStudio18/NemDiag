@@ -6,76 +6,221 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>NEMDIAG <span>Linux Edition</span></h1>
-            <p id="system-info">Chargement des informations système...</p>
-        </header>
-
-        <main>
-            <div class="test-selection" id="test-selection">
-                <div class="test-card" onclick="startDiagnostic('rapide', 30)">
-                    <h3>Test Rapide</h3>
-                    <p>Vérification express de 2 minutes. Idéal pour un contrôle de routine.</p>
-                </div>
-                <div class="test-card" onclick="startDiagnostic('standard', 300)">
-                    <h3>Test Standard</h3>
-                    <p>Test approfondi de 20 minutes (5 min/composant). Le meilleur compromis.</p>
-                </div>
-                <div class="test-card" onclick="startDiagnostic('extreme', 900)">
-                    <h3>Test Extrême</h3>
-                    <p>Stress intense de 60 minutes. Pour valider l'overclocking et le refroidissement.</p>
-                </div>
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">NEMDIAG <span>Linux</span></div>
+            <nav>
+                <div class="nav-item active" onclick="switchTab('dashboard')" id="nav-dashboard">📊 Tableau de Bord</div>
+                <div class="nav-item" onclick="switchTab('diagnostics')" id="nav-diagnostics">⚡ Tests de Stress</div>
+                <div class="nav-item" onclick="switchTab('results')" id="nav-results" style="display:none;">📈 Résultats</div>
+            </nav>
+            <div class="telemetry-consent">
+                <label>
+                    <input type="checkbox" id="telemetry-optin" checked>
+                    Partager mes résultats
+                </label>
             </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
             
-            <div class="test-flow">
-                <div class="progress-container" id="progress-container" style="display: none;">
-                    <div class="step" id="step-cpu">
-                        <span class="icon">⚙️</span>
-                        <span class="label">Stress Test CPU</span>
-                        <span class="status">En attente...</span>
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <header>
+                    <h1>Tableau de Bord</h1>
+                    <p id="system-info">Chargement des informations système...</p>
+                </header>
+                
+                <div class="dashboard-grid">
+                    <div class="dash-card">
+                        <h3>Utilisation CPU</h3>
+                        <div class="gauge-container">
+                            <div class="gauge-bar" id="cpu-gauge" style="width: 0%;"></div>
+                        </div>
+                        <p id="cpu-value" class="gauge-text">0%</p>
                     </div>
-                    <div class="step" id="step-gpu">
-                        <span class="icon">🎮</span>
-                        <span class="label">Stress Test GPU</span>
-                        <span class="status">En attente...</span>
+                    <div class="dash-card">
+                        <h3>Utilisation Mémoire</h3>
+                        <div class="gauge-container">
+                            <div class="gauge-bar" id="ram-gauge" style="width: 0%;"></div>
+                        </div>
+                        <p id="ram-value" class="gauge-text">0 MB / 0 MB</p>
                     </div>
-                    <div class="step" id="step-ram">
-                        <span class="icon">🧠</span>
-                        <span class="label">Stress Test RAM</span>
-                        <span class="status">En attente...</span>
-                    </div>
-                    <div class="step" id="step-disk">
-                        <span class="icon">💾</span>
-                        <span class="label">Stress Test Disque</span>
-                        <span class="status">En attente...</span>
-                    </div>
-                    <div class="step" id="step-smart">
-                        <span class="icon">⚕️</span>
-                        <span class="label">Analyse Matérielle & S.M.A.R.T</span>
-                        <span class="status">En attente...</span>
+                    <div class="dash-card temperatures">
+                        <h3>Températures</h3>
+                        <ul id="temp-list">
+                            <li>Chargement...</li>
+                        </ul>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div id="results" style="display: none;">
-                <h2>Diagnostic Terminé</h2>
-                <p>Le rapport a été généré avec succès.</p>
-                <div id="report-path" class="path-box"></div>
-                <button onclick="window.close()">Fermer</button>
-            </div>
+            <!-- Diagnostics View -->
+            <section id="view-diagnostics" class="view">
+                <header>
+                    <h1>Tests de Stress</h1>
+                    <p>Sélectionnez le niveau de diagnostic matériel souhaité.</p>
+                </header>
+                
+                <div class="test-selection" id="test-selection">
+                    <div class="test-card" onclick="startDiagnostic('rapide', 30)">
+                        <h3>Test Rapide</h3>
+                        <p>Vérification express de 2 minutes. Idéal pour un contrôle de routine.</p>
+                    </div>
+                    <div class="test-card" onclick="startDiagnostic('standard', 300)">
+                        <h3>Test Standard</h3>
+                        <p>Test approfondi de 20 minutes (5 min/composant). Le meilleur compromis.</p>
+                    </div>
+                    <div class="test-card" onclick="startDiagnostic('extreme', 900)">
+                        <h3>Test Extrême</h3>
+                        <p>Stress intense de 60 minutes. Pour valider l'overclocking et le refroidissement.</p>
+                    </div>
+                </div>
+                
+                <div class="test-flow">
+                    <div class="progress-container" id="progress-container" style="display: none;">
+                        <div class="step" id="step-cpu">
+                            <span class="icon">⚙️</span>
+                            <span class="label">Stress Test CPU</span>
+                            <span class="status">En attente...</span>
+                        </div>
+                        <div class="step" id="step-gpu">
+                            <span class="icon">🎮</span>
+                            <span class="label">Stress Test GPU</span>
+                            <span class="status">En attente...</span>
+                        </div>
+                        <div class="step" id="step-ram">
+                            <span class="icon">🧠</span>
+                            <span class="label">Stress Test RAM</span>
+                            <span class="status">En attente...</span>
+                        </div>
+                        <div class="step" id="step-disk">
+                            <span class="icon">💾</span>
+                            <span class="label">Stress Test Disque</span>
+                            <span class="status">En attente...</span>
+                        </div>
+                        <div class="step" id="step-smart">
+                            <span class="icon">⚕️</span>
+                            <span class="label">Analyse Matérielle & S.M.A.R.T</span>
+                            <span class="status">En attente...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results View -->
+            <section id="view-results" class="view">
+                <header>
+                    <h1>Rapport de Diagnostic</h1>
+                    <p>Voici les résultats et recommandations basés sur vos tests.</p>
+                </header>
+                
+                <div class="results-grid">
+                    <div class="score-card">
+                        <h4>Score CPU</h4>
+                        <div class="score-val" id="score-cpu">--</div>
+                    </div>
+                    <div class="score-card">
+                        <h4>Score GPU</h4>
+                        <div class="score-val" id="score-gpu">--</div>
+                    </div>
+                    <div class="score-card">
+                        <h4>Score RAM</h4>
+                        <div class="score-val" id="score-ram">--</div>
+                    </div>
+                    <div class="score-card">
+                        <h4>Score Disque</h4>
+                        <div class="score-val" id="score-disk">--</div>
+                    </div>
+                </div>
+
+                <div class="advice-panel">
+                    <h3>💡 Recommandations Pratiques</h3>
+                    <ul id="advice-list">
+                    </ul>
+                </div>
+                
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button class="btn-action" onclick="window.close()">Fermer l'application</button>
+                </div>
+            </section>
+
         </main>
     </div>
     
     <script>
         const { invoke } = window.__TAURI__.core;
         
+        let memTotalMb = 0;
+        let realtimeInterval = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('view-' + tabId).classList.add('active');
+            document.getElementById('nav-' + tabId).classList.add('active');
+
+            if (tabId === 'dashboard') {
+                startRealtimeUpdates();
+            } else {
+                stopRealtimeUpdates();
+            }
+        }
+
         async function loadInfo() {
             try {
                 const info = await invoke('get_sys_info');
+                memTotalMb = info.memory_total_mb;
                 document.getElementById('system-info').innerText = `${info.os_name} | ${info.cpu_name} | ${info.memory_total_mb} MB RAM`;
+                startRealtimeUpdates();
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        async function fetchRealtimeStats() {
+            try {
+                const stats = await invoke('get_realtime_stats');
+                
+                let cpuUsage = stats.cpu_usage.toFixed(1);
+                document.getElementById('cpu-gauge').style.width = cpuUsage + '%';
+                document.getElementById('cpu-value').innerText = cpuUsage + '%';
+                
+                let ramUsedMb = stats.memory_used / 1024 / 1024;
+                let ramPct = (ramUsedMb / memTotalMb) * 100;
+                document.getElementById('ram-gauge').style.width = ramPct + '%';
+                document.getElementById('ram-value').innerText = `${ramUsedMb.toFixed(0)} MB / ${memTotalMb} MB`;
+
+                const tempList = document.getElementById('temp-list');
+                tempList.innerHTML = '';
+                if (stats.temperatures.length === 0) {
+                    tempList.innerHTML = '<li>Aucun capteur détecté</li>';
+                } else {
+                    stats.temperatures.forEach(t => {
+                        let li = document.createElement('li');
+                        li.innerText = `${t[0]} : ${t[1].toFixed(1)} °C`;
+                        tempList.appendChild(li);
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function startRealtimeUpdates() {
+            if (!realtimeInterval) {
+                fetchRealtimeStats();
+                realtimeInterval = setInterval(fetchRealtimeStats, 1000);
+            }
+        }
+
+        function stopRealtimeUpdates() {
+            if (realtimeInterval) {
+                clearInterval(realtimeInterval);
+                realtimeInterval = null;
             }
         }
 
@@ -116,13 +261,44 @@
 
             // SMART & REPORT
             updateStep('step-smart', 'Génération du rapport...', true);
-            const reportPath = await invoke('run_smart_and_export');
-            updateStep('step-smart', 'Terminé', false);
+            let reportJson;
+            try {
+                const reportRaw = await invoke('run_smart_and_export');
+                reportJson = JSON.parse(reportRaw);
+                updateStep('step-smart', 'Terminé', false);
+            } catch (e) {
+                updateStep('step-smart', 'Erreur : ' + e, false);
+                return;
+            }
 
-            // Show results
+            // Populate Results
+            document.getElementById('score-cpu').innerText = reportJson.cpu_score;
+            document.getElementById('score-gpu').innerText = reportJson.gpu_score;
+            document.getElementById('score-ram').innerText = reportJson.ram_score + " MB/s";
+            document.getElementById('score-disk').innerText = reportJson.disk_score + " MB/s";
+
+            const adviceList = document.getElementById('advice-list');
+            adviceList.innerHTML = '';
+            if (reportJson.recommendations && reportJson.recommendations.length > 0) {
+                reportJson.recommendations.forEach(r => {
+                    let li = document.createElement('li');
+                    li.innerText = r;
+                    adviceList.appendChild(li);
+                });
+            } else {
+                let li = document.createElement('li');
+                li.className = "success-text";
+                li.innerText = "Aucun problème détecté, votre matériel est en pleine forme !";
+                adviceList.appendChild(li);
+            }
+
+            // Reset UI for next time
+            document.getElementById('test-selection').style.display = 'flex';
             document.getElementById('progress-container').style.display = 'none';
-            document.getElementById('results').style.display = 'block';
-            document.getElementById('report-path').innerText = reportPath;
+
+            // Show results tab
+            document.getElementById('nav-results').style.display = 'block';
+            switchTab('results');
         }
 
         window.addEventListener('DOMContentLoaded', loadInfo);

@@ -24,6 +24,15 @@ pub struct ReportData {
     pub ram_throughput_mbs: u32,
     pub disk_stress_running: bool,
     pub disk_throughput_mbs: u32,
+    
+    // Scores
+    pub cpu_score: u64,
+    pub gpu_score: u32,
+    pub ram_score: u32,
+    pub disk_score: u32,
+
+    // Recommendations
+    pub recommendations: Vec<String>,
 
     // NVML data if available
     pub nvidia_gpus: Vec<NvidiaGpuData>,
@@ -52,6 +61,26 @@ pub fn generate_report(
         utilization,
     }).collect();
 
+    let cpu_score = cpu.get_score();
+    let gpu_score = gpu.get_fps() * 10;
+    let ram_score = ram.get_throughput();
+    let disk_score = disk.get_throughput();
+
+    let mut recommendations = Vec::new();
+    let max_temp = monitor.get_temperatures().into_iter().map(|(_, t)| t).fold(0.0, f32::max);
+    if max_temp > 85.0 {
+        recommendations.push("Surchauffe détectée (> 85°C). Pensez à dépoussiérer les ventilateurs ou changer la pâte thermique.".to_string());
+    }
+
+    if info.memory_total > 0 && (info.memory_used as f64 / info.memory_total as f64) > 0.85 {
+        recommendations.push("Manque de mémoire vive (RAM) détecté, ce qui ralentit le système. Envisagez une augmentation.".to_string());
+    }
+    
+    // Simple mock heuristic for SSD/HDD
+    if disk_score < 100 && disk.is_running() {
+        recommendations.push("La vitesse de stockage est particulièrement faible. Le disque pourrait présenter des signes de faiblesse ou être un vieux HDD.".to_string());
+    }
+
     let data = ReportData {
         os_name: info.os_name,
         kernel_version: info.kernel_version,
@@ -67,6 +96,11 @@ pub fn generate_report(
         ram_throughput_mbs: ram.get_throughput(),
         disk_stress_running: disk.is_running(),
         disk_throughput_mbs: disk.get_throughput(),
+        cpu_score,
+        gpu_score,
+        ram_score,
+        disk_score,
+        recommendations,
         nvidia_gpus,
     };
 
@@ -74,6 +108,17 @@ pub fn generate_report(
     
     let path = "/tmp/nemdiag_report.json";
     fs::write(path, &json).map_err(|e| format!("Failed to write file: {}", e))?;
+
+    // Asynchronously send telemetry
+    let telemetry_json = json.clone();
+    tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        let _ = client.post("http://localhost:8080/api/telemetry")
+            .header("Content-Type", "application/json")
+            .body(telemetry_json)
+            .send()
+            .await;
+    });
     
-    Ok(path.to_string())
+    Ok(json) // We return the JSON content directly to frontend instead of just the path
 }

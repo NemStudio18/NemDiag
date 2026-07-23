@@ -14,6 +14,8 @@ serde_json = "1.0.151"
 sysinfo = "0.39.6"
 wgpu = "30.0.0"
 tauri = { version = "2.0.0", features = [] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
 
 [build-dependencies]
 tauri-build = "2.0.0"
