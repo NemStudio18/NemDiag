@@ -109,7 +109,6 @@ impl DiskStress {
         if let Some(handle) = self.thread_handle.take() {
             let _ = handle.join();
         }
-        self.throughput_mb_s.store(0, Ordering::Relaxed);
     }
 
     pub fn is_running(&self) -> bool {
