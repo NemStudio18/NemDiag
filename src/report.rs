@@ -111,14 +111,16 @@ pub fn generate_report(
 
     // Asynchronously send telemetry
     let telemetry_json = json.clone();
-    tokio::spawn(async move {
-        let client = reqwest::Client::new();
-        let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
-            .header("Content-Type", "application/json")
-            .body(telemetry_json)
-            .send()
-            .await;
-    });
+    if crate::TELEMETRY_CONSENT.load(std::sync::atomic::Ordering::Relaxed) {
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
+                .header("Content-Type", "application/json")
+                .body(telemetry_json)
+                .send()
+                .await;
+        });
+    }
     
     Ok(json) // We return the JSON content directly to frontend instead of just the path
 }

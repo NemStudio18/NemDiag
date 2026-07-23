@@ -149,6 +149,20 @@
 
         </main>
     </div>
+
+    <!-- Consent Modal -->
+    <div id="consent-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>📢 Aidez-nous à améliorer Nemdiag !</h2>
+            <p>Souhaitez-vous partager anonymement vos résultats de diagnostics (scores) et les rapports de crash automatiques ?</p>
+            <p>Ces données nous aident à construire le site de comparaison matériel et à corriger les bugs plus rapidement.</p>
+            <div class="modal-actions">
+                <button class="btn-action btn-secondary" onclick="setConsent(false)">Non, merci</button>
+                <button class="btn-action" onclick="setConsent(true)">Accepter et Contribuer</button>
+            </div>
+        </div>
+    </div>
+
     
     <script>
         const { invoke } = window.__TAURI__.core;
@@ -176,9 +190,34 @@
                 memTotalMb = info.memory_total_mb;
                 document.getElementById('system-info').innerText = `${info.os_name} | ${info.cpu_name} | ${info.memory_total_mb} MB RAM`;
                 startRealtimeUpdates();
+
+                // Handle Consent
+                let consent = localStorage.getItem('telemetryConsent');
+                if (consent === null) {
+                    document.getElementById('consent-modal').style.display = 'flex';
+                } else {
+                    applyConsent(consent === 'true');
+                }
+
+                // Checkbox event listener
+                document.getElementById('telemetry-optin').addEventListener('change', (e) => {
+                    setConsent(e.target.checked);
+                });
+
             } catch (e) {
                 console.error(e);
             }
+        }
+
+        function setConsent(isConsenting) {
+            localStorage.setItem('telemetryConsent', isConsenting);
+            applyConsent(isConsenting);
+            document.getElementById('consent-modal').style.display = 'none';
+        }
+
+        function applyConsent(isConsenting) {
+            document.getElementById('telemetry-optin').checked = isConsenting;
+            invoke('set_telemetry_consent', { consent: isConsenting }).catch(console.error);
         }
 
         async function fetchRealtimeStats() {

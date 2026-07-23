@@ -16,12 +16,20 @@ use stress_disk::DiskStress;
 use report::generate_report;
 use std::time::Duration;
 use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static TELEMETRY_CONSENT: AtomicBool = AtomicBool::new(false);
 
 #[derive(serde::Serialize)]
 struct SysInfo {
     os_name: String,
     cpu_name: String,
     memory_total_mb: u64,
+}
+
+#[tauri::command]
+fn set_telemetry_consent(consent: bool) {
+    TELEMETRY_CONSENT.store(consent, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -98,6 +106,9 @@ async fn run_smart_and_export(state: tauri::State<'_, std::sync::Mutex<HardwareM
 
 fn main() {
     std::panic::set_hook(Box::new(|info| {
+        if !TELEMETRY_CONSENT.load(Ordering::Relaxed) {
+            return;
+        }
         let payload = format!("Nemdiag Crash: {:?}", info);
         let _ = std::thread::spawn(move || {
             if let Ok(client) = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(2)).build() {
@@ -117,7 +128,8 @@ fn main() {
             run_gpu_test,
             run_ram_test,
             run_disk_test,
-            run_smart_and_export
+            run_smart_and_export,
+            set_telemetry_consent
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
