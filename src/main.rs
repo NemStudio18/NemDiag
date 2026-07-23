@@ -101,7 +101,7 @@ fn main() {
         let payload = format!("Nemdiag Crash: {:?}", info);
         let _ = std::thread::spawn(move || {
             if let Ok(client) = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(2)).build() {
-                let _ = client.post("http://localhost:8080/api/crash")
+                let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/crash")
                     .body(payload)
                     .send();
             }

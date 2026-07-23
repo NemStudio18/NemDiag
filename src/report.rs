@@ -113,7 +113,7 @@ pub fn generate_report(
     let telemetry_json = json.clone();
     tokio::spawn(async move {
         let client = reqwest::Client::new();
-        let _ = client.post("http://localhost:8080/api/telemetry")
+        let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
             .header("Content-Type", "application/json")
             .body(telemetry_json)
             .send()
