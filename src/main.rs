@@ -16,9 +16,13 @@ use stress_disk::DiskStress;
 use report::generate_report;
 use std::time::Duration;
 use std::thread;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU32, Ordering};
 
 pub static TELEMETRY_CONSENT: AtomicBool = AtomicBool::new(false);
+pub static LAST_CPU_SCORE: AtomicU64 = AtomicU64::new(0);
+pub static LAST_GPU_SCORE: AtomicU32 = AtomicU32::new(0);
+pub static LAST_RAM_SCORE: AtomicU32 = AtomicU32::new(0);
+pub static LAST_DISK_SCORE: AtomicU32 = AtomicU32::new(0);
 
 #[derive(serde::Serialize)]
 struct SysInfo {
@@ -55,11 +59,17 @@ fn get_sys_info(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> SysIn
 }
 
 #[tauri::command]
+async fn get_detailed_system_info() -> Result<hardware::DetailedSystemInfo, String> {
+    hardware::gather_detailed_info_linux()
+}
+
+#[tauri::command]
 async fn run_cpu_test(duration: u64) {
     let mut cpu = CpuStress::new();
     cpu.start();
     thread::sleep(Duration::from_secs(duration));
     cpu.stop();
+    LAST_CPU_SCORE.store(cpu.get_score(), Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -68,6 +78,7 @@ async fn run_gpu_test(duration: u64) {
     gpu.start();
     thread::sleep(Duration::from_secs(duration));
     gpu.stop();
+    LAST_GPU_SCORE.store(gpu.get_fps() * 10, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -76,6 +87,7 @@ async fn run_ram_test(duration: u64) {
     ram.start();
     thread::sleep(Duration::from_secs(duration));
     ram.stop();
+    LAST_RAM_SCORE.store(ram.get_throughput(), Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -84,21 +96,22 @@ async fn run_disk_test(duration: u64) {
     disk.start();
     thread::sleep(Duration::from_secs(duration));
     disk.stop();
+    LAST_DISK_SCORE.store(disk.get_throughput(), Ordering::Relaxed);
 }
 
 #[tauri::command]
 async fn run_smart_and_export(state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> Result<String, String> {
-    let cpu = CpuStress::new();
-    let gpu = GpuStress::new();
-    let ram = RamStress::new();
-    let disk = DiskStress::new();
+    let c_score = LAST_CPU_SCORE.load(Ordering::Relaxed);
+    let g_score = LAST_GPU_SCORE.load(Ordering::Relaxed);
+    let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
+    let d_score = LAST_DISK_SCORE.load(Ordering::Relaxed);
 
     // Try fetching SMART in the background (will prompt user via pkexec if on Linux)
     let _ = get_smart_info("/dev/sda");
     let _ = get_baseboard_info_sudo();
 
     let monitor = state.lock().unwrap();
-    match generate_report(&*monitor, &cpu, &gpu, &ram, &disk) {
+    match generate_report(&*monitor, c_score, g_score, r_score, d_score) {
         Ok(path) => Ok(path),
         Err(e) => Err(format!("Erreur: {}", e)),
     }
@@ -123,6 +136,7 @@ fn main() {
         .manage(std::sync::Mutex::new(HardwareMonitor::new()))
         .invoke_handler(tauri::generate_handler![
             get_sys_info,
+            get_detailed_system_info,
             get_realtime_stats,
             run_cpu_test,
             run_gpu_test,

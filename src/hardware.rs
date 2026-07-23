@@ -124,9 +124,72 @@ pub fn get_nvml_info() -> Vec<(String, u32, u32)> {
                 }
             }
         },
-        Err(_) => {
-            // NVML not available or no NVIDIA GPU
-        }
+        Err(_) => {}
     }
     nv_info
+}
+
+#[derive(serde::Serialize, Default)]
+pub struct DetailedSystemInfo {
+    pub motherboard: String,
+    pub cpu_details: String,
+    pub ram_details: String,
+    pub disks_details: String,
+}
+
+pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
+    use std::fs;
+    use std::io::Write;
+
+    let script = r#"
+#!/bin/sh
+echo "{"
+echo "\"motherboard\": \"$(dmidecode -t baseboard | base64 -w 0)\","
+echo "\"memory\": \"$(dmidecode -t memory | base64 -w 0)\","
+echo "\"cpu\": \"$(lscpu | base64 -w 0)\","
+echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA | base64 -w 0)\""
+echo "}"
+"#;
+
+    let script_path = "/tmp/nemdiag_gather.sh";
+    let mut file = fs::File::create(script_path).map_err(|e| e.to_string())?;
+    file.write_all(script.as_bytes()).map_err(|e| e.to_string())?;
+    
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(script_path, fs::Permissions::from_mode(0o755));
+    }
+
+    let output = Command::new("pkexec")
+        .arg("sh")
+        .arg(script_path)
+        .output()
+        .map_err(|e| format!("Failed to execute pkexec: {}", e))?;
+
+    let _ = fs::remove_file(script_path);
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+
+    let json_str = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&json_str).map_err(|e| e.to_string())?;
+
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    
+    let decode = |v: &serde_json::Value, key: &str| -> String {
+        v.get(key)
+            .and_then(|v| v.as_str())
+            .and_then(|s| STANDARD.decode(s).ok())
+            .map(|b| String::from_utf8_lossy(&b).to_string())
+            .unwrap_or_default()
+    };
+
+    Ok(DetailedSystemInfo {
+        motherboard: decode(&parsed, "motherboard"),
+        cpu_details: decode(&parsed, "cpu"),
+        ram_details: decode(&parsed, "memory"),
+        disks_details: decode(&parsed, "disks"),
+    })
 }

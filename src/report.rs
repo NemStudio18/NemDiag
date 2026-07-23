@@ -1,10 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::fs;
 use crate::hardware::{HardwareMonitor, get_nvml_info};
-use crate::stress_cpu::CpuStress;
-use crate::stress_gpu::GpuStress;
-use crate::stress_ram::RamStress;
-use crate::stress_disk::DiskStress;
 
 #[derive(Serialize, Deserialize)]
 pub struct ReportData {
@@ -47,10 +43,10 @@ pub struct NvidiaGpuData {
 
 pub fn generate_report(
     monitor: &HardwareMonitor,
-    cpu: &CpuStress,
-    gpu: &GpuStress,
-    ram: &RamStress,
-    disk: &DiskStress,
+    cpu_score: u64,
+    gpu_score: u32,
+    ram_score: u32,
+    disk_score: u32,
 ) -> Result<String, String> {
     let info = monitor.get_static_info();
     
@@ -60,11 +56,6 @@ pub fn generate_report(
         temperature,
         utilization,
     }).collect();
-
-    let cpu_score = cpu.get_score();
-    let gpu_score = gpu.get_fps() * 10;
-    let ram_score = ram.get_throughput();
-    let disk_score = disk.get_throughput();
 
     let mut recommendations = Vec::new();
     let max_temp = monitor.get_temperatures().into_iter().map(|(_, t)| t).fold(0.0, f32::max);
@@ -77,7 +68,7 @@ pub fn generate_report(
     }
     
     // Simple mock heuristic for SSD/HDD
-    if disk_score < 100 && disk.is_running() {
+    if disk_score < 100 {
         recommendations.push("La vitesse de stockage est particulièrement faible. Le disque pourrait présenter des signes de faiblesse ou être un vieux HDD.".to_string());
     }
 
@@ -89,13 +80,13 @@ pub fn generate_report(
         core_count: info.core_count,
         memory_total_mb: info.memory_total / 1024 / 1024,
         memory_used_mb: info.memory_used / 1024 / 1024,
-        cpu_stress_running: cpu.is_running(),
-        gpu_stress_running: gpu.is_running(),
-        gpu_fps: gpu.get_fps(),
-        ram_stress_running: ram.is_running(),
-        ram_throughput_mbs: ram.get_throughput(),
-        disk_stress_running: disk.is_running(),
-        disk_throughput_mbs: disk.get_throughput(),
+        cpu_stress_running: false,
+        gpu_stress_running: false,
+        gpu_fps: 0,
+        ram_stress_running: false,
+        ram_throughput_mbs: 0,
+        disk_stress_running: false,
+        disk_throughput_mbs: 0,
         cpu_score,
         gpu_score,
         ram_score,

@@ -302,3 +302,73 @@ button.btn-action {
 button.btn-action:hover {
     background: #e62e5c;
 }
+
+/* Dashboard Tabs */
+.dash-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+.dash-tab {
+    background: transparent;
+    color: #aaa;
+    border: none;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+}
+
+.dash-tab:hover {
+    color: #eee;
+    background: rgba(255, 51, 102, 0.1);
+}
+
+.dash-tab.active {
+    color: var(--primary);
+    background: rgba(255, 51, 102, 0.15);
+    border-bottom: 2px solid var(--primary);
+    border-radius: 5px 5px 0 0;
+}
+
+.dash-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.dash-content.active {
+    display: block;
+}
+
+.detail-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #333;
+}
+
+.detail-card h3 {
+    color: var(--primary);
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+.detail-card pre {
+    background: #111;
+    padding: 15px;
+    border-radius: 5px;
+    color: #ccc;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    overflow-x: auto;
+    border-left: 3px solid var(--primary);
+    white-space: pre-wrap;
+}

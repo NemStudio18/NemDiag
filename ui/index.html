@@ -33,26 +33,64 @@
                     <p id="system-info">Chargement des informations système...</p>
                 </header>
                 
-                <div class="dashboard-grid">
-                    <div class="dash-card">
-                        <h3>Utilisation CPU</h3>
-                        <div class="gauge-container">
-                            <div class="gauge-bar" id="cpu-gauge" style="width: 0%;"></div>
+                <div class="dash-tabs">
+                    <button class="dash-tab active" onclick="switchDashTab('resume')">Résumé</button>
+                    <button class="dash-tab" onclick="switchDashTab('cpu')">CPU</button>
+                    <button class="dash-tab" onclick="switchDashTab('ram')">RAM</button>
+                    <button class="dash-tab" onclick="switchDashTab('mb')">Carte Mère</button>
+                    <button class="dash-tab" onclick="switchDashTab('storage')">Stockage</button>
+                </div>
+
+                <div id="dash-resume" class="dash-content active">
+                    <div class="dashboard-grid">
+                        <div class="dash-card">
+                            <h3>Utilisation CPU</h3>
+                            <div class="gauge-container">
+                                <div class="gauge-bar" id="cpu-gauge" style="width: 0%;"></div>
+                            </div>
+                            <p id="cpu-value" class="gauge-text">0%</p>
                         </div>
-                        <p id="cpu-value" class="gauge-text">0%</p>
-                    </div>
-                    <div class="dash-card">
-                        <h3>Utilisation Mémoire</h3>
-                        <div class="gauge-container">
-                            <div class="gauge-bar" id="ram-gauge" style="width: 0%;"></div>
+                        <div class="dash-card">
+                            <h3>Utilisation Mémoire</h3>
+                            <div class="gauge-container">
+                                <div class="gauge-bar" id="ram-gauge" style="width: 0%;"></div>
+                            </div>
+                            <p id="ram-value" class="gauge-text">0 MB / 0 MB</p>
                         </div>
-                        <p id="ram-value" class="gauge-text">0 MB / 0 MB</p>
+                        <div class="dash-card temperatures">
+                            <h3>Températures</h3>
+                            <ul id="temp-list">
+                                <li>Chargement...</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="dash-card temperatures">
-                        <h3>Températures</h3>
-                        <ul id="temp-list">
-                            <li>Chargement...</li>
-                        </ul>
+                </div>
+
+                <div id="dash-cpu" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Détails du Processeur</h3>
+                        <pre id="detail-cpu-text">Chargement...</pre>
+                    </div>
+                </div>
+
+                <div id="dash-ram" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Détails de la Mémoire (RAM)</h3>
+                        <pre id="detail-ram-text">Chargement...</pre>
+                    </div>
+                </div>
+
+                <div id="dash-mb" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Détails de la Carte Mère</h3>
+                        <pre id="detail-mb-text">Chargement...</pre>
+                    </div>
+                </div>
+
+                <div id="dash-storage" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Détails du Stockage (Disques)</h3>
+                        <pre id="detail-storage-text">Chargement...</pre>
                     </div>
                 </div>
             </section>
@@ -170,6 +208,14 @@
         let memTotalMb = 0;
         let realtimeInterval = null;
 
+        function switchDashTab(tabId) {
+            document.querySelectorAll('.dash-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.dash-content').forEach(el => el.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('dash-' + tabId).classList.add('active');
+        }
+
         function switchTab(tabId) {
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -203,6 +249,27 @@
                 document.getElementById('telemetry-optin').addEventListener('change', (e) => {
                     setConsent(e.target.checked);
                 });
+
+                // Fetch detailed hardware info
+                const detailedInfo = await invoke('get_detailed_system_info');
+                
+                // Disks are in JSON format, parse and format them beautifully
+                try {
+                    const disksJson = JSON.parse(detailedInfo.disks_details);
+                    let formattedDisks = "";
+                    if (disksJson && disksJson.blockdevices) {
+                        disksJson.blockdevices.forEach(d => {
+                            formattedDisks += `Nom: ${d.name || 'N/A'}\nModèle: ${d.model || 'N/A'}\nTaille: ${d.size || 'N/A'}\nType: ${d.type || 'N/A'}\nPoint de montage: ${d.mountpoint || 'N/A'}\n\n`;
+                        });
+                    }
+                    document.getElementById('detail-storage-text').innerText = formattedDisks || detailedInfo.disks_details;
+                } catch(e) {
+                    document.getElementById('detail-storage-text').innerText = detailedInfo.disks_details;
+                }
+                
+                document.getElementById('detail-cpu-text').innerText = detailedInfo.cpu_details;
+                document.getElementById('detail-ram-text').innerText = detailedInfo.ram_details;
+                document.getElementById('detail-mb-text').innerText = detailedInfo.motherboard;
 
             } catch (e) {
                 console.error(e);
