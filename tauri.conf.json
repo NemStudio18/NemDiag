@@ -1,7 +1,7 @@
 {
   "build": {
-    "frontendDist": "../ui",
-    "devUrl": "../ui",
+    "frontendDist": "ui",
+    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
