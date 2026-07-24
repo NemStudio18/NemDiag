@@ -106,9 +106,8 @@ async fn run_smart_and_export(state: tauri::State<'_, std::sync::Mutex<HardwareM
     let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
     let d_score = LAST_DISK_SCORE.load(Ordering::Relaxed);
 
-    // Try fetching SMART in the background (will prompt user via pkexec if on Linux)
-    let _ = get_smart_info("/dev/sda");
-    let _ = get_baseboard_info_sudo();
+    // We no longer fetch SMART here manually since it was moved to the dashboard startup,
+    // and these blocking pkexec calls cause the test completion to hang.
 
     let monitor = state.lock().unwrap();
     match generate_report(&*monitor, c_score, g_score, r_score, d_score) {
