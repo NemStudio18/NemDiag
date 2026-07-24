@@ -433,23 +433,28 @@
             // Populate Results
             document.getElementById('score-cpu').innerText = reportJson.cpu_score;
             document.getElementById('score-gpu').innerText = reportJson.gpu_score;
-            document.getElementById('score-ram').innerText = reportJson.ram_score + " MB/s";
-            document.getElementById('score-disk').innerText = reportJson.disk_score + " MB/s";
+            document.getElementById('score-ram').innerText = reportJson.ram_score + " Mo/s";
+            document.getElementById('score-disk').innerText = reportJson.disk_score + " Mo/s";
 
-            const adviceList = document.getElementById('advice-list');
-            adviceList.innerHTML = '';
-            if (reportJson.recommendations && reportJson.recommendations.length > 0) {
-                reportJson.recommendations.forEach(r => {
-                    let li = document.createElement('li');
-                    li.innerText = r;
-                    adviceList.appendChild(li);
-                });
-            } else {
-                let li = document.createElement('li');
-                li.className = "success-text";
-                li.innerText = "Aucun problème détecté, votre matériel est en pleine forme !";
-                adviceList.appendChild(li);
+            document.getElementById('advice-cpu').innerText = reportJson.cpu_advice || "Analyse non disponible.";
+            document.getElementById('advice-gpu').innerText = reportJson.gpu_advice || "Analyse non disponible.";
+            document.getElementById('advice-ram').innerText = reportJson.ram_advice || "Analyse non disponible.";
+            document.getElementById('advice-disk').innerText = reportJson.disk_advice || "Analyse non disponible.";
+
+            // Appliquer des classes de couleur selon le score (heuristique basique côté frontend pour l'UI)
+            function setBadgeColor(id, score, medium, good) {
+                let badge = document.getElementById(id);
+                if (!badge) return;
+                badge.className = 'score-badge'; // reset
+                if (score < medium) badge.classList.add('status-bad');
+                else if (score < good) badge.classList.add('status-warn');
+                else badge.classList.add('status-good');
             }
+
+            setBadgeColor('score-cpu', reportJson.cpu_score, 100, 400);
+            setBadgeColor('score-gpu', reportJson.gpu_score, 300, 1500);
+            setBadgeColor('score-ram', reportJson.ram_score, 5000, 12000);
+            setBadgeColor('score-disk', reportJson.disk_score, 150, 600);
 
             // Reset UI for next time
             document.getElementById('test-selection').style.display = 'flex';
