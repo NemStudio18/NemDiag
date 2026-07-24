@@ -156,6 +156,15 @@
                     <p>Voici les résultats et recommandations basés sur vos tests.</p>
                 </header>
                 
+                <div class="report-header-info">
+                    <div class="global-score-container">
+                        <h3>Score de Santé Global</h3>
+                        <div class="global-score-circle">
+                            <span id="global-score-value">--</span><span style="font-size: 1rem; color: #8892b0;">/100</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="report-cards">
                     <!-- CPU Card -->
                     <div class="result-detail-card">
@@ -519,6 +528,21 @@
             setBadgeColor('score-gpu', reportJson.gpu_score, 300, 1500);
             setBadgeColor('score-ram', reportJson.ram_score, 5000, 12000);
             setBadgeColor('score-disk', reportJson.disk_score, 150, 600);
+
+            // Calcul du Score de Santé Global (0 à 100)
+            let cpu_n = Math.min(reportJson.cpu_score / 120, 100);
+            let gpu_n = Math.min(reportJson.gpu_score / 20, 100);
+            let ram_n = Math.min(reportJson.ram_score / 120, 100);
+            let disk_n = Math.min(reportJson.disk_score / 8, 100);
+            
+            let global_score = Math.round(cpu_n * 0.4 + gpu_n * 0.3 + ram_n * 0.15 + disk_n * 0.15);
+            
+            let globalScoreEl = document.getElementById('global-score-value');
+            globalScoreEl.innerText = global_score;
+            
+            if (global_score < 40) globalScoreEl.style.color = '#dc3545';
+            else if (global_score < 75) globalScoreEl.style.color = '#ffc107';
+            else globalScoreEl.style.color = '#28a745';
 
             // Reset UI for next time
             document.getElementById('test-selection').style.display = 'flex';
