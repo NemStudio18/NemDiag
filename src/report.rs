@@ -61,12 +61,12 @@ pub fn generate_report(
     }).collect();
 
     let mut cpu_advice = String::new();
-    if cpu_score < 100 {
-        cpu_advice = "Score très faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement ou de remplacer la machine pour des tâches modernes.".to_string();
-    } else if cpu_score < 400 {
-        cpu_advice = "Score moyen. Le processeur est adapté à de la bureautique et de la navigation web, mais risque de peiner sur du traitement lourd (vidéo, jeux).".to_string();
+    if cpu_score < 4000 {
+        cpu_advice = format!("Score : {}. Score plutôt faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement.", cpu_score);
+    } else if cpu_score < 10000 {
+        cpu_advice = format!("Score : {}. Score moyen (bureautique avancée). Pour vous donner un ordre d'idée, un CPU de bureau classique récent tourne autour de 6000-8000. Il risque de peiner sur du traitement très lourd.", cpu_score);
     } else {
-        cpu_advice = "Excellent score ! Votre processeur est puissant et très performant pour le multitâche lourd et le jeu.".to_string();
+        cpu_advice = format!("Score : {}. Excellent score ! Votre processeur est surpuissant et très performant pour le multitâche lourd, le jeu ou le rendu 3D. (Moyenne haute : ~10000).", cpu_score);
     }
 
     let max_temp = monitor.get_temperatures().into_iter().map(|(_, t)| t).fold(0.0, f32::max);

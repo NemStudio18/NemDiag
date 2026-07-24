@@ -14,6 +14,7 @@
                 <div class="nav-item active" onclick="switchTab('dashboard')" id="nav-dashboard">📊 Tableau de Bord</div>
                 <div class="nav-item" onclick="switchTab('diagnostics')" id="nav-diagnostics">⚡ Tests de Stress</div>
                 <div class="nav-item" onclick="switchTab('results')" id="nav-results" style="display:none;">📈 Résultats</div>
+                <div class="nav-item" onclick="switchTab('leaderboard')" id="nav-leaderboard">🌍 Classement</div>
             </nav>
             <div class="telemetry-consent">
                 <label>
@@ -238,6 +239,32 @@
                 </div>
             </section>
 
+            <!-- Leaderboard View -->
+            <section id="view-leaderboard" class="view">
+                <header>
+                    <h1>Classement Communautaire</h1>
+                    <p>Découvrez comment votre machine se situe par rapport aux autres utilisateurs de NemDiag.</p>
+                </header>
+                
+                <div class="leaderboard-container">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rang</th>
+                                <th>Système d'Exploitation</th>
+                                <th>Processeur (CPU)</th>
+                                <th>RAM (Go)</th>
+                                <th>Score CPU</th>
+                                <th>Score GPU</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <tr><td colspan="6" style="text-align: center;">Chargement des scores...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -280,6 +307,43 @@
                 startRealtimeUpdates();
             } else {
                 stopRealtimeUpdates();
+            }
+
+            if (tabId === 'leaderboard') {
+                loadLeaderboard();
+            }
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch("https://nemdiag.nhtml.ynh.fr/api/telemetry");
+                if (!response.ok) throw new Error("Erreur réseau");
+                const data = await response.json();
+                
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun score disponible.</td></tr>';
+                    return;
+                }
+                
+                data.forEach((entry, index) => {
+                    const tr = document.createElement('tr');
+                    
+                    let rowHtml = `<td>#${index + 1}</td>`;
+                    rowHtml += `<td>${entry.os_name}</td>`;
+                    rowHtml += `<td>${entry.cpu_name} (${entry.core_count} cœurs)</td>`;
+                    rowHtml += `<td>${Math.round(entry.memory_total_mb / 1024)}</td>`;
+                    rowHtml += `<td><strong style="color:var(--primary)">${entry.cpu_score}</strong></td>`;
+                    rowHtml += `<td>${entry.gpu_score}</td>`;
+                    
+                    tr.innerHTML = rowHtml;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Erreur de chargement du classement :", e);
+                document.getElementById('leaderboard-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--primary);">Erreur lors de la récupération des scores.</td></tr>';
             }
         }
 
@@ -451,7 +515,7 @@
                 else badge.classList.add('status-good');
             }
 
-            setBadgeColor('score-cpu', reportJson.cpu_score, 100, 400);
+            setBadgeColor('score-cpu', reportJson.cpu_score, 4000, 10000);
             setBadgeColor('score-gpu', reportJson.gpu_score, 300, 1500);
             setBadgeColor('score-ram', reportJson.ram_score, 5000, 12000);
             setBadgeColor('score-disk', reportJson.disk_score, 150, 600);

@@ -440,3 +440,45 @@ button.btn-action:hover {
     border-left: 3px solid var(--primary);
     white-space: pre-wrap;
 }
+
+/* Leaderboard */
+.leaderboard-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.leaderboard-table th, .leaderboard-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.leaderboard-table th {
+    color: var(--primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+}
+
+.leaderboard-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.leaderboard-table tbody tr:hover {
+    background: rgba(255, 51, 102, 0.05);
+}
+
+.leaderboard-table td {
+    font-size: 0.95rem;
+    color: #ccc;
+}
+
