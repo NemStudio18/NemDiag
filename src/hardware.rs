@@ -135,19 +135,28 @@ pub struct DetailedSystemInfo {
     pub cpu_details: String,
     pub ram_details: String,
     pub disks_details: String,
+    pub usb_details: String,
+    pub gpu_details: String,
+    pub battery_details: String,
+    pub display_details: String,
 }
 
 pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
     use std::fs;
     use std::io::Write;
+    use std::process::Command;
 
     let script = r#"
 #!/bin/sh
 echo "{"
-echo "\"motherboard\": \"$(dmidecode -t baseboard | base64 -w 0)\","
-echo "\"memory\": \"$(dmidecode -t memory | base64 -w 0)\","
+echo "\"motherboard\": \"$(pkexec dmidecode -t baseboard | base64 -w 0)\","
+echo "\"memory\": \"$(pkexec dmidecode -t memory | base64 -w 0)\","
 echo "\"cpu\": \"$(lscpu | base64 -w 0)\","
-echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA | base64 -w 0)\""
+echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA | base64 -w 0)\","
+echo "\"usb\": \"$(lsusb | base64 -w 0)\","
+echo "\"gpu\": \"$(lspci -vnn | grep -i -A 12 'vga\|3d\|display' | base64 -w 0)\","
+echo "\"battery\": \"$(upower -i $(upower -e | grep 'BAT' | head -n 1) 2>/dev/null | base64 -w 0)\","
+echo "\"display\": \"$(xrandr 2>/dev/null | grep -E ' connected|[*]' | base64 -w 0)\""
 echo "}"
 "#;
 
@@ -161,11 +170,10 @@ echo "}"
         let _ = fs::set_permissions(script_path, fs::Permissions::from_mode(0o755));
     }
 
-    let output = Command::new("pkexec")
-        .arg("sh")
+    let output = Command::new("sh")
         .arg(script_path)
         .output()
-        .map_err(|e| format!("Failed to execute pkexec: {}", e))?;
+        .map_err(|e| format!("Failed to execute script: {}", e))?;
 
     let _ = fs::remove_file(script_path);
 
@@ -183,7 +191,7 @@ echo "}"
             .and_then(|v| v.as_str())
             .and_then(|s| STANDARD.decode(s).ok())
             .map(|b| String::from_utf8_lossy(&b).to_string())
-            .unwrap_or_default()
+            .unwrap_or_else(|| "Information non disponible".to_string())
     };
 
     Ok(DetailedSystemInfo {
@@ -191,5 +199,9 @@ echo "}"
         cpu_details: decode(&parsed, "cpu"),
         ram_details: decode(&parsed, "memory"),
         disks_details: decode(&parsed, "disks"),
+        usb_details: decode(&parsed, "usb"),
+        gpu_details: decode(&parsed, "gpu"),
+        battery_details: decode(&parsed, "battery"),
+        display_details: decode(&parsed, "display"),
     })
 }

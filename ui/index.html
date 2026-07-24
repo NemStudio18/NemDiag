@@ -51,6 +51,8 @@
                     <button class="dash-tab" onclick="switchDashTab('ram')">RAM</button>
                     <button class="dash-tab" onclick="switchDashTab('mb')">Carte Mère</button>
                     <button class="dash-tab" onclick="switchDashTab('storage')">Stockage</button>
+                    <button class="dash-tab" onclick="switchDashTab('gpu_bat')">GPU & Batterie</button>
+                    <button class="dash-tab" onclick="switchDashTab('periph')">Périphériques</button>
                 </div>
 
                 <div id="dash-resume" class="dash-content active">
@@ -103,6 +105,28 @@
                     <div class="detail-card">
                         <h3>Détails du Stockage (Disques)</h3>
                         <pre id="detail-storage-text">Chargement...</pre>
+                    </div>
+                </div>
+
+                <div id="dash-gpu_bat" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Cartes Graphiques (GPU & iGPU)</h3>
+                        <pre id="detail-gpu-text">Chargement...</pre>
+                    </div>
+                    <div class="detail-card" style="margin-top: 1rem;">
+                        <h3>Batterie et Alimentation</h3>
+                        <pre id="detail-battery-text">Chargement...</pre>
+                    </div>
+                </div>
+
+                <div id="dash-periph" class="dash-content">
+                    <div class="detail-card">
+                        <h3>Écrans et Résolutions</h3>
+                        <pre id="detail-display-text">Chargement...</pre>
+                    </div>
+                    <div class="detail-card" style="margin-top: 1rem;">
+                        <h3>Périphériques USB</h3>
+                        <pre id="detail-usb-text">Chargement...</pre>
                     </div>
                 </div>
             </section>
@@ -407,6 +431,10 @@
                 document.getElementById('detail-cpu-text').innerText = detailedInfo.cpu_details;
                 document.getElementById('detail-ram-text').innerText = detailedInfo.ram_details;
                 document.getElementById('detail-mb-text').innerText = detailedInfo.motherboard;
+                document.getElementById('detail-gpu-text').innerText = detailedInfo.gpu_details || "Non détecté";
+                document.getElementById('detail-battery-text').innerText = detailedInfo.battery_details || "Pas de batterie détectée";
+                document.getElementById('detail-display-text').innerText = detailedInfo.display_details || "Non détecté";
+                document.getElementById('detail-usb-text').innerText = detailedInfo.usb_details || "Non détecté";
 
             } catch (e) {
                 console.error(e);
