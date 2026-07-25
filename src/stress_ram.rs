@@ -85,6 +85,15 @@ impl RamStress {
 
                 pattern_index = (pattern_index + 1) % patterns.len();
             }
+
+            // T14: Final throughput update — ensures score is non-zero if 1s timer never fired
+            let elapsed = last_update.elapsed().as_secs_f64();
+            if elapsed > 0.05 && bytes_processed > 0 {
+                let mb_s = (bytes_processed as f64 / 1024.0 / 1024.0 / elapsed) as u32;
+                if mb_s > 0 {
+                    throughput.store(mb_s, Ordering::Relaxed);
+                }
+            }
         }));
     }
 

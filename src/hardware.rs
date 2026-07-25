@@ -72,7 +72,15 @@ impl HardwareMonitor {
     pub fn get_temperatures(&self) -> Vec<(String, f32)> {
         self.components
             .iter()
-            .map(|c| (c.label().to_string(), c.temperature().unwrap_or(0.0)))
+            .filter_map(|c| {
+                let t = c.temperature().unwrap_or(0.0);
+                // Filter out aberrant values (e.g. millidegrees returned as degrees)
+                if t > 0.5 && t < 120.0 {
+                    Some((c.label().to_string(), t))
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 }
@@ -131,6 +139,8 @@ pub fn get_nvml_info() -> Vec<(String, u32, u32)> {
 
 #[derive(serde::Serialize, Default)]
 pub struct DetailedSystemInfo {
+    pub system_details: String,
+    pub bios_details: String,
     pub motherboard: String,
     pub cpu_details: String,
     pub ram_details: String,
@@ -142,40 +152,39 @@ pub struct DetailedSystemInfo {
 }
 
 pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
-    use std::fs;
     use std::io::Write;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
+    // Security fix (T4): pass script via stdin instead of writing to /tmp
+    // This eliminates the TOCTOU race condition vulnerability.
     let script = r#"
-#!/bin/sh
 echo "{"
-echo "\"motherboard\": \"$(pkexec dmidecode -t baseboard | base64 -w 0)\","
-echo "\"memory\": \"$(pkexec dmidecode -t memory | base64 -w 0)\","
-echo "\"cpu\": \"$(lscpu | base64 -w 0)\","
-echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA | base64 -w 0)\","
-echo "\"usb\": \"$(lsusb | base64 -w 0)\","
-echo "\"gpu\": \"$(lspci -vnn | grep -i -A 12 'vga\|3d\|display' | base64 -w 0)\","
-echo "\"battery\": \"$(upower -i $(upower -e | grep 'BAT' | head -n 1) 2>/dev/null | base64 -w 0)\","
+echo "\"system\": \"$(pkexec dmidecode -t system 2>/dev/null | base64 -w 0)\","
+echo "\"bios\": \"$(pkexec dmidecode -t bios 2>/dev/null | base64 -w 0)\","
+echo "\"motherboard\": \"$(pkexec dmidecode -t baseboard 2>/dev/null | base64 -w 0)\","
+echo "\"memory\": \"$(pkexec dmidecode -t memory 2>/dev/null | base64 -w 0)\","
+echo "\"cpu\": \"$(lscpu 2>/dev/null | base64 -w 0)\","
+echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA 2>/dev/null | base64 -w 0)\","
+echo "\"usb\": \"$(lsusb 2>/dev/null | base64 -w 0)\","
+echo "\"gpu\": \"$(lspci -vnn 2>/dev/null | grep -i -A 12 'vga\|3d\|display' | base64 -w 0)\","
+echo "\"battery\": \"$(upower -i $(upower -e 2>/dev/null | grep 'BAT' | head -n 1) 2>/dev/null | base64 -w 0)\","
 echo "\"display\": \"$(xrandr 2>/dev/null | grep -E ' connected|[*]' | base64 -w 0)\""
 echo "}"
 "#;
 
-    let script_path = "/tmp/nemdiag_gather.sh";
-    let mut file = fs::File::create(script_path).map_err(|e| e.to_string())?;
-    file.write_all(script.as_bytes()).map_err(|e| e.to_string())?;
-    
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(script_path, fs::Permissions::from_mode(0o755));
+    let mut child = Command::new("sh")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn sh: {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(script.as_bytes()).map_err(|e| e.to_string())?;
     }
 
-    let output = Command::new("sh")
-        .arg(script_path)
-        .output()
-        .map_err(|e| format!("Failed to execute script: {}", e))?;
-
-    let _ = fs::remove_file(script_path);
+    let output = child.wait_with_output()
+        .map_err(|e| format!("Failed to wait for script: {}", e))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
@@ -195,6 +204,8 @@ echo "}"
     };
 
     Ok(DetailedSystemInfo {
+        system_details: decode(&parsed, "system"),
+        bios_details: decode(&parsed, "bios"),
         motherboard: decode(&parsed, "motherboard"),
         cpu_details: decode(&parsed, "cpu"),
         ram_details: decode(&parsed, "memory"),

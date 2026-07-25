@@ -1,10 +1,10 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU32}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU32, AtomicU64}};
 use std::thread;
-use std::time::Instant;
 
 pub struct GpuStress {
     is_running: Arc<AtomicBool>,
-    fps: Arc<AtomicU32>,
+    /// T13: Total GPU compute passes completed over the full test duration
+    total_passes: Arc<AtomicU64>,
     thread_handle: Option<thread::JoinHandle<()>>,
 }
 
@@ -12,7 +12,7 @@ impl GpuStress {
     pub fn new() -> Self {
         Self {
             is_running: Arc::new(AtomicBool::new(false)),
-            fps: Arc::new(AtomicU32::new(0)),
+            total_passes: Arc::new(AtomicU64::new(0)),
             thread_handle: None,
         }
     }
@@ -23,7 +23,7 @@ impl GpuStress {
         }
         self.is_running.store(true, Ordering::SeqCst);
         let running = Arc::clone(&self.is_running);
-        let fps_counter = Arc::clone(&self.fps);
+        let total_passes_counter = Arc::clone(&self.total_passes);
 
         self.thread_handle = Some(thread::spawn(move || {
             let instance = wgpu::Instance::default();
@@ -92,9 +92,6 @@ impl GpuStress {
                 }],
             });
 
-            let mut passes = 0;
-            let mut last_update = Instant::now();
-
             while running.load(Ordering::Relaxed) {
                 let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
                 {
@@ -106,19 +103,12 @@ impl GpuStress {
                     cpass.set_bind_group(0, &bind_group, &[]);
                     cpass.dispatch_workgroups(1024 * 1024 / 256, 1, 1);
                 }
-                
                 let submission_index = queue.submit(Some(encoder.finish()));
                 let _ = device.poll(wgpu::PollType::Wait { submission_index: Some(submission_index), timeout: None });
 
-                passes += 1;
-                if last_update.elapsed().as_secs() >= 1 {
-                    // Update stats (simulated here)
-                    fps_counter.store(passes, Ordering::Relaxed);
-                    passes = 0;
-                    last_update = Instant::now();
-                }
+                // T13: Count total passes over full test duration for reliable scoring
+                total_passes_counter.fetch_add(1, Ordering::Relaxed);
 
-                // Throttle to prevent completely freezing the desktop
                 std::thread::sleep(std::time::Duration::from_millis(2));
             }
         }));
@@ -135,8 +125,9 @@ impl GpuStress {
         self.is_running.load(Ordering::SeqCst)
     }
 
-    pub fn get_fps(&self) -> u32 {
-        self.fps.load(Ordering::Relaxed)
+    /// T13: Total GPU compute passes over the full test duration
+    pub fn get_total_passes(&self) -> u64 {
+        self.total_passes.load(Ordering::Relaxed)
     }
 }
 

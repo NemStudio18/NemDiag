@@ -2,6 +2,19 @@ use serde::{Serialize, Deserialize};
 use std::fs;
 use crate::hardware::{HardwareMonitor, get_nvml_info};
 
+/// Only the fields sent to the remote leaderboard server (GDPR-safe: no host_name).
+#[derive(Serialize)]
+struct TelemetryPayload {
+    os_name: String,
+    cpu_name: String,
+    core_count: usize,
+    memory_total_mb: u64,
+    cpu_score: u64,
+    gpu_score: u32,
+    ram_score: u32,
+    disk_score: u32,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ReportData {
     pub os_name: String,
@@ -138,17 +151,31 @@ pub fn generate_report(
     let path = "/tmp/nemdiag_report.json";
     fs::write(path, &json).map_err(|e| format!("Failed to write file: {}", e))?;
 
-    // Asynchronously send telemetry
-    let telemetry_json = json.clone();
+    // Asynchronously send telemetry (GDPR fix T2: only send leaderboard-relevant fields, no host_name)
     if crate::TELEMETRY_CONSENT.load(std::sync::atomic::Ordering::Relaxed) {
-        tokio::spawn(async move {
-            let client = reqwest::Client::new();
-            let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
-                .header("Content-Type", "application/json")
-                .body(telemetry_json)
-                .send()
-                .await;
-        });
+        let payload = TelemetryPayload {
+            os_name: data.os_name.clone(),
+            cpu_name: data.cpu_name.clone(),
+            core_count: data.core_count,
+            memory_total_mb: data.memory_total_mb,
+            cpu_score: data.cpu_score,
+            gpu_score: data.gpu_score,
+            ram_score: data.ram_score,
+            disk_score: data.disk_score,
+        };
+        if let Ok(telemetry_json) = serde_json::to_string(&payload) {
+            tokio::spawn(async move {
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(10))
+                    .build()
+                    .unwrap_or_default();
+                let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
+                    .header("Content-Type", "application/json")
+                    .body(telemetry_json)
+                    .send()
+                    .await;
+            });
+        }
     }
     
     Ok(json) // We return the JSON content directly to frontend instead of just the path

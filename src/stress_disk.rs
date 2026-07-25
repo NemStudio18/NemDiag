@@ -30,7 +30,23 @@ impl DiskStress {
         let throughput = Arc::clone(&self.throughput_mb_s);
 
         self.thread_handle = Some(thread::spawn(move || {
-            let file_path = PathBuf::from("/tmp/nemdiag_stress_test.tmp");
+            // T11: Detect if /tmp is tmpfs — if so, we'd be measuring RAM, not the disk.
+            // Fall back to $HOME in that case.
+            let file_path = {
+                let is_tmp_tmpfs = std::fs::read_to_string("/proc/mounts")
+                    .map(|mounts| mounts.lines().any(|line| {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        parts.len() >= 3 && parts[1] == "/tmp" && parts[2] == "tmpfs"
+                    }))
+                    .unwrap_or(false);
+
+                if is_tmp_tmpfs {
+                    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+                    PathBuf::from(home).join(".nemdiag_stress_test.tmp")
+                } else {
+                    PathBuf::from("/tmp/nemdiag_stress_test.tmp")
+                }
+            };
             
             let mut options = OpenOptions::new();
             options.read(true).write(true).create(true).truncate(true);

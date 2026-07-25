@@ -8,7 +8,7 @@ mod stress_ram;
 mod stress_disk;
 mod report;
 
-use hardware::{HardwareMonitor, RealtimeInfo, get_baseboard_info_sudo, get_smart_info};
+use hardware::{HardwareMonitor, RealtimeInfo};
 use stress_cpu::CpuStress;
 use stress_gpu::GpuStress;
 use stress_ram::RamStress;
@@ -23,6 +23,8 @@ pub static LAST_CPU_SCORE: AtomicU64 = AtomicU64::new(0);
 pub static LAST_GPU_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_RAM_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_DISK_SCORE: AtomicU32 = AtomicU32::new(0);
+/// T3: Global cancel flag — set to true by cancel_test(), checked in all test loops.
+pub static CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(serde::Serialize)]
 struct SysInfo {
@@ -34,6 +36,12 @@ struct SysInfo {
 #[tauri::command]
 fn set_telemetry_consent(consent: bool) {
     TELEMETRY_CONSENT.store(consent, Ordering::Relaxed);
+}
+
+/// T3: Cancels the currently running stress test sequence.
+#[tauri::command]
+fn cancel_test() {
+    CANCEL_REQUESTED.store(true, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -63,38 +71,57 @@ async fn get_detailed_system_info() -> Result<hardware::DetailedSystemInfo, Stri
     hardware::gather_detailed_info_linux()
 }
 
+/// T5: Non-blocking async sleep loop — allows cancel and keeps Tauri UI responsive.
+async fn interruptible_sleep(duration_secs: u64) {
+    // Reset cancel at the very start (only run_cpu_test calls this first)
+    let start = tokio::time::Instant::now();
+    let target = Duration::from_secs(duration_secs);
+    while start.elapsed() < target {
+        if CANCEL_REQUESTED.load(Ordering::Relaxed) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
 #[tauri::command]
 async fn run_cpu_test(duration: u64) {
+    // T3+T5: Reset cancel flag at the start of a new sequence (CPU is always first)
+    CANCEL_REQUESTED.store(false, Ordering::Relaxed);
     let mut cpu = CpuStress::new();
     cpu.start();
-    thread::sleep(Duration::from_secs(duration));
+    interruptible_sleep(duration).await;
     cpu.stop();
     LAST_CPU_SCORE.store(cpu.get_score(), Ordering::Relaxed);
 }
 
 #[tauri::command]
 async fn run_gpu_test(duration: u64) {
+    if CANCEL_REQUESTED.load(Ordering::Relaxed) { return; }
     let mut gpu = GpuStress::new();
     gpu.start();
-    thread::sleep(Duration::from_secs(duration));
+    interruptible_sleep(duration).await;
     gpu.stop();
-    LAST_GPU_SCORE.store(gpu.get_fps() * 10, Ordering::Relaxed);
+    // T13: Score = total compute passes * 50 (gives ~100 for iGPU, ~5000 for discrete GPU)
+    LAST_GPU_SCORE.store((gpu.get_total_passes() * 50) as u32, Ordering::Relaxed);
 }
 
 #[tauri::command]
 async fn run_ram_test(duration: u64) {
+    if CANCEL_REQUESTED.load(Ordering::Relaxed) { return; }
     let mut ram = RamStress::new();
     ram.start();
-    thread::sleep(Duration::from_secs(duration));
+    interruptible_sleep(duration).await;
     ram.stop();
     LAST_RAM_SCORE.store(ram.get_throughput(), Ordering::Relaxed);
 }
 
 #[tauri::command]
 async fn run_disk_test(duration: u64) {
+    if CANCEL_REQUESTED.load(Ordering::Relaxed) { return; }
     let mut disk = DiskStress::new();
     disk.start();
-    thread::sleep(Duration::from_secs(duration));
+    interruptible_sleep(duration).await;
     disk.stop();
     LAST_DISK_SCORE.store(disk.get_throughput(), Ordering::Relaxed);
 }
@@ -105,9 +132,6 @@ async fn run_smart_and_export(state: tauri::State<'_, std::sync::Mutex<HardwareM
     let g_score = LAST_GPU_SCORE.load(Ordering::Relaxed);
     let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
     let d_score = LAST_DISK_SCORE.load(Ordering::Relaxed);
-
-    // We no longer fetch SMART here manually since it was moved to the dashboard startup,
-    // and these blocking pkexec calls cause the test completion to hang.
 
     let monitor = state.lock().unwrap();
     match generate_report(&*monitor, c_score, g_score, r_score, d_score) {
@@ -122,7 +146,7 @@ fn main() {
             return;
         }
         let payload = format!("Nemdiag Crash: {:?}", info);
-        let _ = std::thread::spawn(move || {
+        let _ = thread::spawn(move || {
             if let Ok(client) = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(2)).build() {
                 let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/crash")
                     .body(payload)
@@ -142,7 +166,8 @@ fn main() {
             run_ram_test,
             run_disk_test,
             run_smart_and_export,
-            set_telemetry_consent
+            set_telemetry_consent,
+            cancel_test
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
