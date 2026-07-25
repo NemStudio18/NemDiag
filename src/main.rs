@@ -79,7 +79,7 @@ struct CompanionAdvice {
 }
 
 #[tauri::command]
-async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> CompanionAdvice {
+async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> Result<CompanionAdvice, String> {
     let mut resources_advice = String::new();
     let thermal_advice;
     let drivers_advice;
@@ -138,11 +138,11 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
         drivers_advice = "✅ <strong>Système de base.</strong> (L'outil de vérification des pilotes n'est pas supporté sur cette distribution, tout semble normal).".to_string();
     }
     
-    CompanionAdvice {
+    Ok(CompanionAdvice {
         resources_advice,
         thermal_advice,
         drivers_advice,
-    }
+    })
 }
 
 #[tauri::command]
