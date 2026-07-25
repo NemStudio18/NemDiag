@@ -1,7 +1,6 @@
 use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU32}};
 use std::thread;
 use std::time::Instant;
-use sysinfo::System;
 
 pub struct RamStress {
     is_running: Arc<AtomicBool>,
@@ -23,60 +22,62 @@ impl RamStress {
             return;
         }
 
-        // On alloue un buffer fixe de 512 Mo pour mesurer le débit sans saturer la RAM système (éviter le freeze OOM)
-        let target_bytes = 1024 * 1024 * 512;
-        let num_u64s = target_bytes / 8;
+        // Buffer de 256 Mo — assez grand pour mesurer, assez petit pour que
+        // chaque chunk de 32 Mo soit traité en bien moins d'une seconde.
+        let num_u64s: usize = (256 * 1024 * 1024) / 8;
+        // Chunk de 32 Mo = ~4 millions de u64
+        let chunk_u64s: usize = (32 * 1024 * 1024) / 8;
 
         self.is_running.store(true, Ordering::SeqCst);
         let running = Arc::clone(&self.is_running);
         let throughput = Arc::clone(&self.throughput_mb_s);
 
         self.thread_handle = Some(thread::spawn(move || {
-            // Allocate a massive buffer
             let mut buffer = vec![0u64; num_u64s];
             
             let patterns = [0x5555555555555555u64, 0xAAAAAAAAAAAAAAAAu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64];
             let mut pattern_index = 0;
 
-            let mut bytes_processed = 0;
+            let mut bytes_processed: u64 = 0;
             let mut last_update = Instant::now();
 
-            while running.load(Ordering::Relaxed) {
+            'outer: while running.load(Ordering::Relaxed) {
                 let current_pattern = patterns[pattern_index];
                 
-                // Write pattern
-                for val in buffer.iter_mut() {
-                    *val = current_pattern;
-                    
-                    // Periodically check if we should stop to avoid blocking for too long
-                    bytes_processed += 8;
-                    if bytes_processed % (1024 * 1024 * 64) == 0 {
-                        if !running.load(Ordering::Relaxed) {
-                            break;
-                        }
+                // Écriture par chunks de 32 Mo avec mise à jour du débit à chaque chunk
+                for chunk in buffer.chunks_mut(chunk_u64s) {
+                    if !running.load(Ordering::Relaxed) { break 'outer; }
+                    for val in chunk.iter_mut() {
+                        *val = current_pattern;
+                    }
+                    bytes_processed += (chunk.len() * 8) as u64;
+
+                    let elapsed = last_update.elapsed().as_secs_f64();
+                    if elapsed >= 1.0 {
+                        let mb_s = (bytes_processed as f64 / 1_048_576.0 / elapsed) as u32;
+                        throughput.store(mb_s, Ordering::Relaxed);
+                        bytes_processed = 0;
+                        last_update = Instant::now();
                     }
                 }
 
-                // Verify pattern
-                for val in buffer.iter() {
-                    if *val != current_pattern {
-                        // In a real memtest, we would log this bitflip error
-                        println!("RAM Error detected! Expected {}, got {}", current_pattern, *val);
-                    }
-                    bytes_processed += 8;
-                    if bytes_processed % (1024 * 1024 * 64) == 0 {
-                        if !running.load(Ordering::Relaxed) {
-                            break;
+                // Vérification par chunks de 32 Mo
+                for chunk in buffer.chunks(chunk_u64s) {
+                    if !running.load(Ordering::Relaxed) { break 'outer; }
+                    for val in chunk.iter() {
+                        if *val != current_pattern {
+                            println!("RAM Error! Expected {:#x}, got {:#x}", current_pattern, *val);
                         }
                     }
-                }
+                    bytes_processed += (chunk.len() * 8) as u64;
 
-                let elapsed = last_update.elapsed().as_secs_f64();
-                if elapsed >= 1.0 {
-                    let mb_s = (bytes_processed as f64 / 1024.0 / 1024.0 / elapsed) as u32;
-                    throughput.store(mb_s, Ordering::Relaxed);
-                    bytes_processed = 0;
-                    last_update = Instant::now();
+                    let elapsed = last_update.elapsed().as_secs_f64();
+                    if elapsed >= 1.0 {
+                        let mb_s = (bytes_processed as f64 / 1_048_576.0 / elapsed) as u32;
+                        throughput.store(mb_s, Ordering::Relaxed);
+                        bytes_processed = 0;
+                        last_update = Instant::now();
+                    }
                 }
 
                 pattern_index = (pattern_index + 1) % patterns.len();
