@@ -159,10 +159,10 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
     // This eliminates the TOCTOU race condition vulnerability.
     let script = r#"
 echo "{"
-echo "\"system\": \"$(pkexec dmidecode -t system 2>/dev/null | base64 -w 0)\","
-echo "\"bios\": \"$(pkexec dmidecode -t bios 2>/dev/null | base64 -w 0)\","
-echo "\"motherboard\": \"$(pkexec dmidecode -t baseboard 2>/dev/null | base64 -w 0)\","
-echo "\"memory\": \"$(pkexec dmidecode -t memory 2>/dev/null | base64 -w 0)\","
+echo "\"system\": \"$(dmidecode -t system 2>/dev/null | base64 -w 0)\","
+echo "\"bios\": \"$(dmidecode -t bios 2>/dev/null | base64 -w 0)\","
+echo "\"motherboard\": \"$(dmidecode -t baseboard 2>/dev/null | base64 -w 0)\","
+echo "\"memory\": \"$(dmidecode -t memory 2>/dev/null | base64 -w 0)\","
 echo "\"cpu\": \"$(lscpu 2>/dev/null | base64 -w 0)\","
 echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA 2>/dev/null | base64 -w 0)\","
 echo "\"usb\": \"$(lsusb 2>/dev/null | base64 -w 0)\","
@@ -172,12 +172,13 @@ echo "\"display\": \"$(xrandr 2>/dev/null | grep -E ' connected|[*]' | base64 -w
 echo "}"
 "#;
 
-    let mut child = Command::new("sh")
+    let mut child = Command::new("pkexec")
+        .arg("sh")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn sh: {}", e))?;
+        .map_err(|e| format!("Failed to spawn pkexec: {}", e))?;
 
     if let Some(mut stdin) = child.stdin.take() {
         stdin.write_all(script.as_bytes()).map_err(|e| e.to_string())?;

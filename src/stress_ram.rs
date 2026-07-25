@@ -23,12 +23,8 @@ impl RamStress {
             return;
         }
 
-        let mut sys = System::new_all();
-        sys.refresh_memory();
-        let available_memory = sys.available_memory(); // in bytes
-
-        // We will try to allocate 75% of available memory to not crash the OS
-        let target_bytes = (available_memory as f64 * 0.75) as usize;
+        // On alloue un buffer fixe de 512 Mo pour mesurer le débit sans saturer la RAM système (éviter le freeze OOM)
+        let target_bytes = 1024 * 1024 * 512;
         let num_u64s = target_bytes / 8;
 
         self.is_running.store(true, Ordering::SeqCst);

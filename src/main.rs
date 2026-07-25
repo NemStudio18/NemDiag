@@ -23,6 +23,9 @@ pub static LAST_CPU_SCORE: AtomicU64 = AtomicU64::new(0);
 pub static LAST_GPU_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_RAM_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_DISK_SCORE: AtomicU32 = AtomicU32::new(0);
+
+pub static LIVE_RAM_THROUGHPUT: AtomicU32 = AtomicU32::new(0);
+pub static LIVE_DISK_THROUGHPUT: AtomicU32 = AtomicU32::new(0);
 /// T3: Global cancel flag — set to true by cancel_test(), checked in all test loops.
 pub static CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 
@@ -111,9 +114,23 @@ async fn run_ram_test(duration: u64) {
     if CANCEL_REQUESTED.load(Ordering::Relaxed) { return; }
     let mut ram = RamStress::new();
     ram.start();
-    interruptible_sleep(duration).await;
+    
+    // Polling loop for live data
+    for _ in 0..(duration * 10) {
+        if CANCEL_REQUESTED.load(Ordering::Relaxed) { break; }
+        LIVE_RAM_THROUGHPUT.store(ram.get_throughput(), Ordering::Relaxed);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+    
     ram.stop();
-    LAST_RAM_SCORE.store(ram.get_throughput(), Ordering::Relaxed);
+    let final_score = ram.get_throughput();
+    LIVE_RAM_THROUGHPUT.store(final_score, Ordering::Relaxed);
+    LAST_RAM_SCORE.store(final_score, Ordering::Relaxed);
+}
+
+#[tauri::command]
+async fn get_live_ram_throughput() -> u32 {
+    LIVE_RAM_THROUGHPUT.load(Ordering::Relaxed)
 }
 
 #[tauri::command]
@@ -121,9 +138,22 @@ async fn run_disk_test(duration: u64) {
     if CANCEL_REQUESTED.load(Ordering::Relaxed) { return; }
     let mut disk = DiskStress::new();
     disk.start();
-    interruptible_sleep(duration).await;
+    
+    for _ in 0..(duration * 10) {
+        if CANCEL_REQUESTED.load(Ordering::Relaxed) { break; }
+        LIVE_DISK_THROUGHPUT.store(disk.get_throughput(), Ordering::Relaxed);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+    
     disk.stop();
-    LAST_DISK_SCORE.store(disk.get_throughput(), Ordering::Relaxed);
+    let final_score = disk.get_throughput();
+    LIVE_DISK_THROUGHPUT.store(final_score, Ordering::Relaxed);
+    LAST_DISK_SCORE.store(final_score, Ordering::Relaxed);
+}
+
+#[tauri::command]
+async fn get_live_disk_throughput() -> u32 {
+    LIVE_DISK_THROUGHPUT.load(Ordering::Relaxed)
 }
 
 #[tauri::command]
@@ -164,7 +194,9 @@ fn main() {
             run_cpu_test,
             run_gpu_test,
             run_ram_test,
+            get_live_ram_throughput,
             run_disk_test,
+            get_live_disk_throughput,
             run_smart_and_export,
             set_telemetry_consent,
             cancel_test

@@ -462,17 +462,21 @@
             banner.innerHTML = `🏆 Votre score CPU (<strong>${cpuScore}</strong>) est dans le <strong>top ${100 - pct}%</strong> des ${scores.length} utilisateurs. Score normalisé : <strong>${normalized}/cœur</strong>.`;
         }
 
-        // Format flat terminal outputs into structured Key-Value rows
-        function formatKeyValue(text) {
+        // Format flat terminal outputs into structured Key-Value rows with optional filtering
+        function formatKeyValue(text, keepKeys = []) {
             if (!text || typeof text !== 'string') return text;
-            // Ignore lines that are just headers (like dmidecode handles) or too long/short without a colon
             const lines = text.split('\n').filter(l => l.includes(':') && l.trim().length > 3);
             if (lines.length === 0) return 'Aucune donnée formatable.';
             
-            return lines.map(line => {
+            return lines.filter(line => {
+                if (keepKeys.length === 0) return true;
+                let key = line.split(':')[0].trim().toLowerCase();
+                return keepKeys.some(k => key.includes(k.toLowerCase()));
+            }).map(line => {
                 let parts = line.split(':');
                 let key = parts.shift().trim();
                 let val = parts.join(':').trim();
+                if (val === 'None' || val === 'Not Specified' || val === 'Unknown' || val === 'No Module Installed') return '';
                 return `<div class="kv-row"><div class="kv-key">${key}</div><div class="kv-val">${val}</div></div>`;
             }).join('');
         }
@@ -625,9 +629,21 @@
                 } else {
                     canvas.style.display = 'none';
                     let title = type==='CPU'?'STRESS TEST CPU':(type==='RAM'?'STRESS TEST RAM':'STRESS TEST DISQUE');
-                    let unit = type==='CPU'?'GFlops':(type==='RAM'?'Go/s':'Mo/s');
+                    let unit = type==='CPU'?'GFlops':(type==='RAM'?'Mo/s':'Mo/s');
                     uiText.innerHTML = `[${title} EN COURS]<br><br>Traitement en temps réel :<br><span id="generic-ops" style="font-size:3rem;">0</span> ${unit}`;
-                    visualizerInterval = setInterval(() => { opCount+=Math.random()*50+10; let el=document.getElementById('generic-ops'); if(el) el.innerText=Math.floor(opCount); }, 50);
+                    
+                    visualizerInterval = setInterval(async () => { 
+                        if (type === 'RAM') {
+                            let val = await invoke('get_live_ram_throughput');
+                            let el=document.getElementById('generic-ops'); if(el) el.innerText=val;
+                        } else if (type === 'DISK') {
+                            let val = await invoke('get_live_disk_throughput');
+                            let el=document.getElementById('generic-ops'); if(el) el.innerText=val;
+                        } else {
+                            opCount+=Math.random()*50+10; 
+                            let el=document.getElementById('generic-ops'); if(el) el.innerText=Math.floor(opCount);
+                        }
+                    }, 500);
                 }
             }
             function hideVisualizer() {
