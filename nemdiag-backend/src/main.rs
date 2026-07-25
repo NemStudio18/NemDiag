@@ -10,12 +10,12 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use sqlx::{sqlite::{SqliteConnectOptions, SqlitePoolOptions}, SqlitePool, Row};
+use sqlx::{mysql::MySqlPoolOptions, MySqlPool, Row};
 use std::str::FromStr;
 
 #[derive(Clone)]
 struct AppState {
-    db: SqlitePool,
+    db: MySqlPool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -28,6 +28,7 @@ struct TelemetryPayload {
     gpu_score: i64,
     ram_score: i64,
     disk_score: i64,
+    system_details: Option<serde_json::Value>,
 }
 
 #[tokio::main]
@@ -40,34 +41,29 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Setup SQLite Connection with WAL mode
-    let options = SqliteConnectOptions::from_str("sqlite://data/nemdiag.db")
-        .unwrap()
-        .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal); // WAL for concurrency
-
-    // Ensure data directory exists
-    tokio::fs::create_dir_all("data").await.unwrap();
-
-    let pool = SqlitePoolOptions::new()
+    // Setup MySQL Connection
+    let database_url = "mysql://my_webapp__16:VsHvYSNA1EegXr64ZbFKV6fDP0kPxP@127.0.0.1/my_webapp__16";
+    
+    let pool = MySqlPoolOptions::new()
         .max_connections(5)
-        .connect_with(options)
+        .connect(database_url)
         .await
-        .expect("Failed to connect to SQLite");
+        .expect("Failed to connect to MySQL");
 
     // Initialize Schema
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS telemetry (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             os_name TEXT,
             cpu_name TEXT,
-            core_count INTEGER,
-            memory_total_mb INTEGER,
-            cpu_score INTEGER,
-            gpu_score INTEGER,
-            ram_score INTEGER,
-            disk_score INTEGER
+            core_count INT,
+            memory_total_mb INT,
+            cpu_score INT,
+            gpu_score INT,
+            ram_score INT,
+            disk_score INT,
+            system_details JSON
         );"
     )
     .execute(&pool)
@@ -76,7 +72,7 @@ async fn main() {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS crashes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             log TEXT
         );"
@@ -108,9 +104,11 @@ async fn handle_telemetry(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<TelemetryPayload>,
 ) -> String {
+    let system_details_str = payload.system_details.map(|v| v.to_string());
+
     let result = sqlx::query(
-        "INSERT INTO telemetry (os_name, cpu_name, core_count, memory_total_mb, cpu_score, gpu_score, ram_score, disk_score) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO telemetry (os_name, cpu_name, core_count, memory_total_mb, cpu_score, gpu_score, ram_score, disk_score, system_details) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(payload.os_name)
     .bind(payload.cpu_name)
@@ -120,6 +118,7 @@ async fn handle_telemetry(
     .bind(payload.gpu_score)
     .bind(payload.ram_score)
     .bind(payload.disk_score)
+    .bind(system_details_str)
     .execute(&state.db)
     .await;
 
