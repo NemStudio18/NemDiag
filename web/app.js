@@ -211,7 +211,7 @@ function closeModal() {
     const modal = document.getElementById('config-modal');
     if (modal) {
         modal.classList.remove('active');
-        document.body.style.overflow = 'auto';
+        document.body.style.overflow = ''; // Restaure le overflow-x: hidden du CSS
     }
 }
 
