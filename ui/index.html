@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Nemdiag</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="gl.js"></script>
 </head>
 <body>
@@ -22,10 +23,10 @@
         <aside class="sidebar">
             <div class="logo">NEMDIAG <span>Linux</span></div>
             <nav>
-                <div class="nav-item" onclick="switchTab('dashboard')" id="nav-dashboard">📊 Tableau de Bord</div>
-                <div class="nav-item" onclick="switchTab('diagnostics')" id="nav-diagnostics">⚡ Tests de Stress</div>
-                <div class="nav-item" onclick="switchTab('results')" id="nav-results" title="Lancez un test pour voir les résultats" style="opacity:0.4; pointer-events:none;">📈 Résultats</div>
-                <div class="nav-item" onclick="switchTab('leaderboard')" id="nav-leaderboard">🌍 Classement</div>
+                <div class="nav-item" onclick="switchTab('dashboard')" id="nav-dashboard"><i class="fa-solid fa-chart-line fa-fw"></i> Tableau de Bord</div>
+                <div class="nav-item" onclick="switchTab('diagnostics')" id="nav-diagnostics"><i class="fa-solid fa-fire-flame-curved fa-fw"></i> Tests de Stress</div>
+                <div class="nav-item" onclick="switchTab('results')" id="nav-results" title="Lancez un test pour voir les résultats" style="opacity:0.4; pointer-events:none;"><i class="fa-solid fa-square-poll-vertical fa-fw"></i> Résultats</div>
+                <div class="nav-item" onclick="switchTab('leaderboard')" id="nav-leaderboard"><i class="fa-solid fa-trophy fa-fw"></i> Classement</div>
             </nav>
             <div class="telemetry-consent">
                 <label>
@@ -99,43 +100,43 @@
 
                 <div id="dash-cpu" class="dash-content">
                     <div class="detail-card">
-                        <h3>Détails du Processeur</h3>
+                        <h3><i class="fa-solid fa-microchip"></i> Détails du Processeur</h3>
                         <div id="detail-cpu-text">Chargement...</div>
                     </div>
                 </div>
 
                 <div id="dash-ram" class="dash-content">
                     <div class="detail-card">
-                        <h3>Détails de la Mémoire (RAM)</h3>
+                        <h3><i class="fa-solid fa-memory"></i> Détails de la Mémoire (RAM)</h3>
                         <div id="detail-ram-text">Chargement...</div>
                     </div>
                 </div>
 
                 <div id="dash-storage" class="dash-content">
                     <div class="detail-card">
-                        <h3>Détails du Stockage (Disques)</h3>
+                        <h3><i class="fa-solid fa-hard-drive"></i> Détails du Stockage (Disques)</h3>
                         <div id="detail-storage-text" class="storage-grid">Chargement...</div>
                     </div>
                 </div>
 
                 <div id="dash-gpu_bat" class="dash-content">
                     <div class="detail-card">
-                        <h3>Cartes Graphiques (GPU & iGPU)</h3>
+                        <h3><i class="fa-solid fa-bolt"></i> Cartes Graphiques (GPU & iGPU)</h3>
                         <div id="detail-gpu-text">Chargement...</div>
                     </div>
                     <div class="detail-card" style="margin-top: 1rem;">
-                        <h3>Batterie et Alimentation</h3>
+                        <h3><i class="fa-solid fa-battery-half"></i> Batterie et Alimentation</h3>
                         <div id="detail-battery-text">Chargement...</div>
                     </div>
                 </div>
 
                 <div id="dash-periph" class="dash-content">
                     <div class="detail-card">
-                        <h3>Écrans et Résolutions</h3>
+                        <h3><i class="fa-solid fa-desktop"></i> Écrans et Résolutions</h3>
                         <div id="detail-display-text">Chargement...</div>
                     </div>
                     <div class="detail-card" style="margin-top: 1rem;">
-                        <h3>Périphériques USB</h3>
+                        <h3><i class="fa-solid fa-usb"></i> Périphériques USB</h3>
                         <div id="detail-usb-text">Chargement...</div>
                     </div>
                 </div>
@@ -583,7 +584,7 @@
         function startProgressBar(label, durationSeconds) {
             clearInterval(progressInterval);
             let elapsed = 0;
-            document.getElementById('progress-label').innerText = label;
+            document.getElementById('progress-label').innerHTML = label;
             document.getElementById('time-progress-bar').style.width = '0%';
             progressInterval = setInterval(() => {
                 elapsed++;
@@ -605,7 +606,7 @@
             document.getElementById('test-selection').style.display = 'none';
             document.getElementById('progress-container').style.display = 'block';
             document.getElementById('btn-cancel').disabled = false;
-            document.getElementById('btn-cancel').innerText = '✕ Annuler le test';
+            document.getElementById('btn-cancel').innerHTML = '<i class="fa-solid fa-xmark"></i> Annuler le test';
             // Reset steps
             ['step-cpu','step-gpu','step-ram','step-disk','step-smart'].forEach(id => {
                 const el = document.getElementById(id);
@@ -654,7 +655,7 @@
 
             // CPU
             updateStep('step-cpu', `En cours (${durationSeconds}s)...`, true);
-            startProgressBar('🔄 Stress Test CPU', durationSeconds);
+            startProgressBar('<i class="fa-solid fa-rotate fa-spin"></i> Stress Test CPU', durationSeconds);
             showVisualizer('CPU');
             await invoke('run_cpu_test', { duration: durationSeconds });
             hideVisualizer(); stopProgressBar();
@@ -663,7 +664,7 @@
 
             // GPU
             updateStep('step-gpu', `En cours (${durationSeconds}s)...`, true);
-            startProgressBar('🔄 Stress Test GPU', durationSeconds);
+            startProgressBar('<i class="fa-solid fa-rotate fa-spin"></i> Stress Test GPU', durationSeconds);
             showVisualizer('GPU');
             await invoke('run_gpu_test', { duration: durationSeconds });
             hideVisualizer(); stopProgressBar();
@@ -672,7 +673,7 @@
 
             // RAM
             updateStep('step-ram', `En cours (${durationSeconds}s)...`, true);
-            startProgressBar('🔄 Stress Test RAM', durationSeconds);
+            startProgressBar('<i class="fa-solid fa-rotate fa-spin"></i> Stress Test RAM', durationSeconds);
             showVisualizer('RAM');
             await invoke('run_ram_test', { duration: durationSeconds });
             hideVisualizer(); stopProgressBar();
@@ -681,7 +682,7 @@
 
             // DISK
             updateStep('step-disk', `En cours (${durationSeconds}s)...`, true);
-            startProgressBar('🔄 Stress Test Disque', durationSeconds);
+            startProgressBar('<i class="fa-solid fa-rotate fa-spin"></i> Stress Test Disque', durationSeconds);
             showVisualizer('DISK');
             await invoke('run_disk_test', { duration: durationSeconds });
             hideVisualizer(); stopProgressBar();
@@ -690,7 +691,7 @@
 
             // SMART & REPORT
             updateStep('step-smart', 'Génération du rapport...', true);
-            document.getElementById('progress-label').innerText = '📊 Génération du rapport...';
+            document.getElementById('progress-label').innerHTML = '<i class="fa-solid fa-file-export fa-bounce"></i> Génération du rapport...';
             let reportJson;
             try {
                 const reportRaw = await invoke('run_smart_and_export');
