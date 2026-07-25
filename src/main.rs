@@ -157,14 +157,14 @@ async fn get_live_disk_throughput() -> u32 {
 }
 
 #[tauri::command]
-async fn run_smart_and_export(state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> Result<String, String> {
+async fn run_smart_and_export(user_id: String, state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> Result<String, String> {
     let c_score = LAST_CPU_SCORE.load(Ordering::Relaxed);
     let g_score = LAST_GPU_SCORE.load(Ordering::Relaxed);
     let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
     let d_score = LAST_DISK_SCORE.load(Ordering::Relaxed);
 
     let monitor = state.lock().unwrap();
-    match generate_report(&*monitor, c_score, g_score, r_score, d_score) {
+    match generate_report(&*monitor, c_score, g_score, r_score, d_score, user_id) {
         Ok(path) => Ok(path),
         Err(e) => Err(format!("Erreur: {}", e)),
     }

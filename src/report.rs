@@ -13,6 +13,7 @@ struct TelemetryPayload {
     gpu_score: u32,
     ram_score: u32,
     disk_score: u32,
+    user_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,6 +64,7 @@ pub fn generate_report(
     gpu_score: u32,
     ram_score: u32,
     disk_score: u32,
+    user_id: String,
 ) -> Result<String, String> {
     let info = monitor.get_static_info();
     
@@ -162,6 +164,7 @@ pub fn generate_report(
             gpu_score: data.gpu_score,
             ram_score: data.ram_score,
             disk_score: data.disk_score,
+            user_id: user_id,
         };
         if let Ok(telemetry_json) = serde_json::to_string(&payload) {
             tokio::spawn(async move {

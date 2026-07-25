@@ -231,17 +231,17 @@
                     <!-- CPU Card -->
                     <div class="result-detail-card">
                         <div class="card-header">
-                            <span class="icon">⚙️</span>
+                            <span class="icon"><i class="fa-solid fa-microchip"></i></span>
                             <h3>Processeur (CPU)</h3>
                             <div class="score-badge" id="score-cpu">--</div>
                         </div>
                         <div class="card-body">
                             <div class="methodology">
-                                <strong>🔍 Ce qui a été testé :</strong>
+                                <strong><i class="fa-solid fa-magnifying-glass"></i> Ce qui a été testé :</strong>
                                 <p>Nous avons saturé tous les cœurs de votre processeur avec des calculs mathématiques lourds (recherche de nombres premiers et cryptographie) pendant la durée du test. Le score reflète le nombre d'opérations complétées par seconde.</p>
                             </div>
                             <div class="analysis">
-                                <strong>💡 Notre analyse :</strong>
+                                <strong><i class="fa-solid fa-lightbulb"></i> Notre analyse :</strong>
                                 <p id="advice-cpu">En attente des résultats...</p>
                             </div>
                         </div>
@@ -250,17 +250,17 @@
                     <!-- GPU Card -->
                     <div class="result-detail-card">
                         <div class="card-header">
-                            <span class="icon">🎮</span>
+                            <span class="icon"><i class="fa-solid fa-gamepad"></i></span>
                             <h3>Carte Graphique (GPU)</h3>
                             <div class="score-badge" id="score-gpu">--</div>
                         </div>
                         <div class="card-body">
                             <div class="methodology">
-                                <strong>🔍 Ce qui a été testé :</strong>
+                                <strong><i class="fa-solid fa-magnifying-glass"></i> Ce qui a été testé :</strong>
                                 <p>Nous avons utilisé WebGPU pour lancer un millier de threads parallèles calculant des fractales complexes en temps réel. Le score est directement lié au nombre d'images par seconde (FPS) générées pendant l'effort.</p>
                             </div>
                             <div class="analysis">
-                                <strong>💡 Notre analyse :</strong>
+                                <strong><i class="fa-solid fa-lightbulb"></i> Notre analyse :</strong>
                                 <p id="advice-gpu">En attente des résultats...</p>
                             </div>
                         </div>
@@ -269,17 +269,17 @@
                     <!-- RAM Card -->
                     <div class="result-detail-card">
                         <div class="card-header">
-                            <span class="icon">🧠</span>
+                            <span class="icon"><i class="fa-solid fa-memory"></i></span>
                             <h3>Mémoire Vive (RAM)</h3>
                             <div class="score-badge" id="score-ram">--</div>
                         </div>
                         <div class="card-body">
                             <div class="methodology">
-                                <strong>🔍 Ce qui a été testé :</strong>
-                                <p>Nous avons alloué un énorme bloc de mémoire (jusqu'à 75% de votre RAM libre) et l'avons inondé de données (écriture/lecture séquentielles). Le score représente la bande passante brute mesurée en Mo/s.</p>
+                                <strong><i class="fa-solid fa-magnifying-glass"></i> Ce qui a été testé :</strong>
+                                <p>Nous avons alloué un bloc de mémoire fixe de 512 Mo et l'avons inondé de données (écriture/lecture séquentielles). Le score représente la bande passante brute mesurée en Mo/s.</p>
                             </div>
                             <div class="analysis">
-                                <strong>💡 Notre analyse :</strong>
+                                <strong><i class="fa-solid fa-lightbulb"></i> Notre analyse :</strong>
                                 <p id="advice-ram">En attente des résultats...</p>
                             </div>
                         </div>
@@ -288,17 +288,17 @@
                     <!-- Disk Card -->
                     <div class="result-detail-card">
                         <div class="card-header">
-                            <span class="icon">💾</span>
+                            <span class="icon"><i class="fa-solid fa-hard-drive"></i></span>
                             <h3>Stockage (Disque)</h3>
                             <div class="score-badge" id="score-disk">--</div>
                         </div>
                         <div class="card-body">
                             <div class="methodology">
-                                <strong>🔍 Ce qui a été testé :</strong>
+                                <strong><i class="fa-solid fa-magnifying-glass"></i> Ce qui a été testé :</strong>
                                 <p>Nous avons créé un fichier temporaire massif et forcé des écritures et lectures en contournant le cache système (O_DIRECT) pour mesurer la vitesse réelle de votre disque dur ou SSD. Le score est exprimé en Mo/s.</p>
                             </div>
                             <div class="analysis">
-                                <strong>💡 Notre analyse :</strong>
+                                <strong><i class="fa-solid fa-lightbulb"></i> Notre analyse :</strong>
                                 <p id="advice-disk">En attente des résultats...</p>
                             </div>
                         </div>
@@ -621,6 +621,7 @@
 
             function showVisualizer(type) {
                 overlay.style.display = 'block';
+                uiText.style.display = 'block'; // Fix: Restore text visibility after WebGL hides it
                 let opCount = 0;
                 if (type === 'GPU') {
                     canvas.style.display = 'block';
@@ -692,9 +693,17 @@
             // SMART & REPORT
             updateStep('step-smart', 'Génération du rapport...', true);
             document.getElementById('progress-label').innerHTML = '<i class="fa-solid fa-file-export fa-bounce"></i> Génération du rapport...';
+            
+            // Get or generate User ID
+            let userId = localStorage.getItem('nemdiag_user_id');
+            if (!userId) {
+                userId = crypto.randomUUID ? crypto.randomUUID() : 'user-' + Date.now() + Math.random().toString(36).substring(2);
+                localStorage.setItem('nemdiag_user_id', userId);
+            }
+            
             let reportJson;
             try {
-                const reportRaw = await invoke('run_smart_and_export');
+                const reportRaw = await invoke('run_smart_and_export', { userId: userId });
                 reportJson = JSON.parse(reportRaw);
                 lastReport = reportJson; // T8: save for percentile
                 updateStep('step-smart', 'Terminé', false);
