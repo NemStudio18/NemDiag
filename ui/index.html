@@ -24,6 +24,7 @@
             <div class="logo">NEMDIAG <span>Linux</span></div>
             <nav>
                 <div class="nav-item" onclick="switchTab('dashboard')" id="nav-dashboard"><i class="fa-solid fa-chart-line fa-fw"></i> Tableau de Bord</div>
+                <div class="nav-item" onclick="switchTab('companion')" id="nav-companion"><i class="fa-solid fa-stethoscope fa-fw"></i> Compagnon</div>
                 <div class="nav-item" onclick="switchTab('diagnostics')" id="nav-diagnostics"><i class="fa-solid fa-fire-flame-curved fa-fw"></i> Tests de Stress</div>
                 <div class="nav-item" onclick="switchTab('results')" id="nav-results" title="Lancez un test pour voir les résultats" style="opacity:0.4; pointer-events:none;"><i class="fa-solid fa-square-poll-vertical fa-fw"></i> Résultats</div>
                 <div class="nav-item" onclick="switchTab('leaderboard')" id="nav-leaderboard"><i class="fa-solid fa-trophy fa-fw"></i> Classement</div>
@@ -138,6 +139,55 @@
                     <div class="detail-card" style="margin-top: 1rem;">
                         <h3><i class="fa-solid fa-usb"></i> Périphériques USB</h3>
                         <div id="detail-usb-text">Chargement...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Companion View -->
+            <section id="view-companion" class="view">
+                <header>
+                    <h1>Assistant Compagnon</h1>
+                    <p>Analyse proactive de la santé de votre système.</p>
+                </header>
+                
+                <div class="report-cards" style="margin-top:2rem;">
+                    <!-- Resource Advice -->
+                    <div class="result-detail-card" style="border-left: 4px solid var(--primary);">
+                        <div class="card-header">
+                            <span class="icon"><i class="fa-solid fa-scale-balanced"></i></span>
+                            <h3>Équilibre des Ressources</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="analysis">
+                                <p id="companion-resources">Analyse en cours...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Thermal Advice -->
+                    <div class="result-detail-card" style="border-left: 4px solid #ff5252;">
+                        <div class="card-header">
+                            <span class="icon"><i class="fa-solid fa-temperature-high"></i></span>
+                            <h3>Thermique (Chauffe)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="analysis">
+                                <p id="companion-thermal">Analyse des sondes au repos en cours...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Drivers Advice -->
+                    <div class="result-detail-card" style="border-left: 4px solid #00e676;">
+                        <div class="card-header">
+                            <span class="icon"><i class="fa-solid fa-car-battery"></i></span>
+                            <h3>Pilotes (Drivers)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="analysis">
+                                <p id="companion-drivers"><i class="fa-solid fa-spinner fa-spin"></i> Vérification des paquets et pilotes en cours...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -482,12 +532,27 @@
             }).join('');
         }
 
+        async function initCompanion() {
+            try {
+                const companionData = await invoke('get_companion_advice');
+                document.getElementById('companion-resources').innerHTML = companionData.resources_advice;
+                document.getElementById('companion-thermal').innerHTML = companionData.thermal_advice;
+                document.getElementById('companion-drivers').innerHTML = companionData.drivers_advice;
+            } catch (e) {
+                document.getElementById('companion-resources').innerHTML = "Erreur de chargement du compagnon.";
+                document.getElementById('companion-thermal').innerHTML = "Erreur de chargement.";
+                document.getElementById('companion-drivers').innerHTML = "Erreur de chargement.";
+                console.error(e);
+            }
+        }
+
         async function loadInfo() {
             try {
                 const info = await invoke('get_sys_info');
                 memTotalMb = info.memory_total_mb;
-                document.getElementById('system-info').innerText = `${info.os_name} | ${info.cpu_name} | ${info.memory_total_mb} MB RAM`;
+                document.getElementById('system-info').innerText = `${info.os_name} (Kernel ${info.kernel_version}) | ${info.cpu_name} | ${info.memory_total_mb} MB RAM`;
                 startRealtimeUpdates();
+                initCompanion();
                 // Init dashboard as active
                 document.getElementById('nav-dashboard').classList.add('active');
                 document.getElementById('view-dashboard').classList.add('active');
@@ -618,11 +683,16 @@
             const canvas = document.getElementById('webgl-canvas');
             const uiText = document.getElementById('webgl-ui');
             let visualizerInterval = null;
+            
+            const loaderCPU = ["Comptage de l'infini...", "Chauffe du réacteur nucléaire...", "Recherche de nombres premiers...", "Saturation des cœurs..."];
+            const loaderRAM = ["Téléchargement de plus de RAM...", "Remplissage des seaux de bits...", "Écriture massive de zéros...", "Allocation de la matrice..."];
+            const loaderDISK = ["Recherche de vos dossiers secrets...", "Gravure au burin des octets...", "Test des limites de la physique...", "Lecture du système de fichiers..."];
 
             function showVisualizer(type) {
                 overlay.style.display = 'block';
-                uiText.style.display = 'block'; // Fix: Restore text visibility after WebGL hides it
+                uiText.style.display = 'block';
                 let opCount = 0;
+                let tickCount = 0;
                 if (type === 'GPU') {
                     canvas.style.display = 'block';
                     uiText.innerHTML = `[STRESS TEST GPU EN COURS]<br>FPS: <span id="webgl-fps">0</span><br>Calculs fractals : <span id="webgl-ops">0</span> MOp/s`;
@@ -632,9 +702,17 @@
                     canvas.style.display = 'none';
                     let title = type==='CPU'?'STRESS TEST CPU':(type==='RAM'?'STRESS TEST RAM':'STRESS TEST DISQUE');
                     let unit = type==='CPU'?'GFlops':(type==='RAM'?'Mo/s':'Mo/s');
-                    uiText.innerHTML = `[${title} EN COURS]<br><br>Traitement en temps réel :<br><span id="generic-ops" style="font-size:3rem;">0</span> ${unit}`;
+                    let msgArray = type==='CPU'?loaderCPU:(type==='RAM'?loaderRAM:loaderDISK);
                     
-                    visualizerInterval = setInterval(async () => { 
+                    uiText.innerHTML = `[${title} EN COURS]<br><br><span id="loader-msg" style="color:var(--text-muted);font-style:italic;">${msgArray[0]}</span><br><br>Traitement en temps réel :<br><span id="generic-ops" style="font-size:3rem;">0</span> ${unit}`;
+                    
+                    visualizerInterval = setInterval(async () => {
+                        tickCount++;
+                        if (tickCount % 6 === 0) { // Change message every ~3 seconds (6 * 500ms)
+                            let loaderMsg = document.getElementById('loader-msg');
+                            if (loaderMsg) loaderMsg.innerText = msgArray[(tickCount / 6) % msgArray.length];
+                        }
+
                         if (type === 'RAM') {
                             let val = await invoke('get_live_ram_throughput');
                             let el=document.getElementById('generic-ops'); if(el) el.innerText=val;

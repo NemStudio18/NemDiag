@@ -32,6 +32,7 @@ pub static CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
 #[derive(serde::Serialize)]
 struct SysInfo {
     os_name: String,
+    kernel_version: String,
     cpu_name: String,
     memory_total_mb: u64,
 }
@@ -64,8 +65,83 @@ fn get_sys_info(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> SysIn
     let info = monitor.get_static_info();
     SysInfo {
         os_name: info.os_name,
+        kernel_version: info.kernel_version,
         cpu_name: info.cpu_name,
         memory_total_mb: info.memory_total / 1024 / 1024,
+    }
+}
+
+#[derive(serde::Serialize)]
+struct CompanionAdvice {
+    resources_advice: String,
+    thermal_advice: String,
+    drivers_advice: String,
+}
+
+#[tauri::command]
+async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> CompanionAdvice {
+    let mut resources_advice = String::new();
+    let thermal_advice;
+    let drivers_advice;
+    
+    let (ram_total_mb, core_count, temps) = {
+        let mut monitor = state.lock().unwrap();
+        monitor.refresh();
+        let info = monitor.get_static_info();
+        let temps = monitor.get_temperatures();
+        (info.memory_total / 1024 / 1024, info.core_count, temps)
+    };
+    
+    // RAM Check
+    if ram_total_mb < 8000 {
+        resources_advice.push_str("⚠️ <strong>Mémoire faible</strong> : Vous avez moins de 8 Go de RAM. Une mise à niveau est fortement recommandée pour la fluidité.<br>");
+    } else if ram_total_mb < 16000 {
+        resources_advice.push_str("✅ <strong>Mémoire adéquate</strong> : Vos 8-16 Go sont suffisants pour un usage courant.<br>");
+    } else {
+        resources_advice.push_str("🚀 <strong>Mémoire excellente</strong> : Plus de 16 Go, parfait pour les tâches lourdes.<br>");
+    }
+    
+    // CPU Check
+    if core_count < 4 {
+        resources_advice.push_str("⚠️ <strong>Processeur vieillissant</strong> : Moins de 4 cœurs détectés. Multitâche limité.<br>");
+    } else if core_count <= 8 {
+        resources_advice.push_str("✅ <strong>Processeur polyvalent</strong> : Bonne capacité pour le jeu et le quotidien.<br>");
+    } else {
+        resources_advice.push_str("🚀 <strong>Processeur performant</strong> : Puissance de calcul massive pour la productivité.<br>");
+    }
+    
+    // Thermal Check
+    let max_temp = temps.iter().map(|(_, t)| *t as i32).max().unwrap_or(0);
+    if temps.is_empty() {
+        thermal_advice = "⚠️ Sondes indisponibles. Impossible de vérifier la température au repos.".to_string();
+    } else if max_temp > 80 {
+        thermal_advice = format!("⚠️ <strong>Surchauffe détectée au repos ({}°C)</strong> : Pensez à nettoyer la poussière ou changer la pâte thermique !", max_temp);
+    } else if max_temp > 60 {
+        thermal_advice = format!("⚠️ <strong>Température tiède ({}°C)</strong> : À surveiller en charge.", max_temp);
+    } else {
+        thermal_advice = format!("✅ <strong>Températures excellentes ({}°C max)</strong> : Votre système est bien refroidi au repos.", max_temp);
+    }
+    
+    // Drivers Check
+    let output = std::process::Command::new("ubuntu-drivers")
+        .arg("devices")
+        .output();
+        
+    if let Ok(out) = output {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        if stdout.contains("recommended") {
+            drivers_advice = "⚠️ <strong>Pilote propriétaire recommandé disponible.</strong> Lancez l'utilitaire de pilotes de votre OS.".to_string();
+        } else {
+            drivers_advice = "✅ <strong>Aucun pilote propriétaire manquant détecté.</strong>".to_string();
+        }
+    } else {
+        drivers_advice = "✅ <strong>Système de base.</strong> (L'outil de vérification des pilotes n'est pas supporté sur cette distribution, tout semble normal).".to_string();
+    }
+    
+    CompanionAdvice {
+        resources_advice,
+        thermal_advice,
+        drivers_advice,
     }
 }
 
@@ -198,6 +274,7 @@ fn main() {
             run_disk_test,
             get_live_disk_throughput,
             run_smart_and_export,
+            get_companion_advice,
             set_telemetry_consent,
             cancel_test
         ])

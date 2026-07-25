@@ -45,7 +45,7 @@ impl HardwareMonitor {
     }
 
     pub fn get_static_info(&self) -> HardwareInfo {
-        let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
+        let os_name = System::long_os_version().unwrap_or_else(|| System::name().unwrap_or_else(|| "Unknown".to_string()));
         let kernel_version = System::kernel_version().unwrap_or_else(|| "Unknown".to_string());
         let host_name = System::host_name().unwrap_or_else(|| "Unknown".to_string());
         let cpus = self.sys.cpus();
