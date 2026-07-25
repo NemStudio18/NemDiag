@@ -156,14 +156,35 @@ pub fn generate_report(
 
     // Asynchronously send telemetry (GDPR fix T2: only send leaderboard-relevant fields, no host_name)
     if crate::TELEMETRY_CONSENT.load(std::sync::atomic::Ordering::Relaxed) {
+        // Gather basic hardware info without sudo/pkexec
+        let mb_name = std::fs::read_to_string("/sys/devices/virtual/dmi/id/board_name").unwrap_or_default();
+        let mb_vendor = std::fs::read_to_string("/sys/devices/virtual/dmi/id/board_vendor").unwrap_or_default();
+        let motherboard = format!("{} {}", mb_vendor.trim(), mb_name.trim());
+        
+        let mut graphics = "Unknown GPU".to_string();
+        if let Ok(out) = std::process::Command::new("lspci").output() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            for line in stdout.lines() {
+                if line.to_lowercase().contains("vga") || line.to_lowercase().contains("3d controller") {
+                    graphics = line.split(": ").nth(1).unwrap_or(line).to_string();
+                    break;
+                }
+            }
+        }
+        
+        let mut disks_json = String::new();
+        if let Ok(out) = std::process::Command::new("lsblk").args(["-J", "-o", "NAME,SIZE,MODEL"]).output() {
+            disks_json = String::from_utf8_lossy(&out.stdout).to_string();
+        }
+
         // Create a safe system_details JSON
         let safe_details = serde_json::json!({
             "os_name": data.os_name,
             "kernel": data.kernel_version,
             "cpu": data.cpu_name,
-            "motherboard": data.motherboard,
-            "graphics": data.graphics,
-            "disks": data.disks
+            "motherboard": motherboard,
+            "graphics": graphics,
+            "disks": disks_json
         });
         
         let payload = TelemetryPayload {
