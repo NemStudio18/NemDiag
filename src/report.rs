@@ -14,6 +14,7 @@ struct TelemetryPayload {
     ram_score: u32,
     disk_score: u32,
     user_id: String,
+    system_details: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -155,6 +156,16 @@ pub fn generate_report(
 
     // Asynchronously send telemetry (GDPR fix T2: only send leaderboard-relevant fields, no host_name)
     if crate::TELEMETRY_CONSENT.load(std::sync::atomic::Ordering::Relaxed) {
+        // Create a safe system_details JSON
+        let safe_details = serde_json::json!({
+            "os_name": data.os_name,
+            "kernel": data.kernel_version,
+            "cpu": data.cpu_name,
+            "motherboard": data.motherboard,
+            "graphics": data.graphics,
+            "disks": data.disks
+        });
+        
         let payload = TelemetryPayload {
             os_name: data.os_name.clone(),
             cpu_name: data.cpu_name.clone(),
@@ -165,6 +176,7 @@ pub fn generate_report(
             ram_score: data.ram_score,
             disk_score: data.disk_score,
             user_id: user_id,
+            system_details: Some(safe_details.to_string()),
         };
         if let Ok(telemetry_json) = serde_json::to_string(&payload) {
             tokio::spawn(async move {

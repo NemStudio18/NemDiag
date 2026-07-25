@@ -2,13 +2,13 @@ const API_URL = "https://nemdiag.nhtml.ynh.fr/api/telemetry";
 
 // Mock data as fallback if API doesn't support GET or is offline
 const MOCK_DATA = [
-    { id: 1, user_id: "user-test1", cpu_score: 14200, gpu_score: 35000, cpu_name: "AMD Ryzen 9 7950X 16-Core Processor", os_name: "Linux Mint 21.2", core_count: 16 },
-    { id: 2, user_id: "user-test2", cpu_score: 12500, gpu_score: 42000, cpu_name: "Intel Core i9-13900K", os_name: "Ubuntu 22.04", core_count: 24 },
-    { id: 3, user_id: "user-test3", cpu_score: 9800, gpu_score: 12000, cpu_name: "AMD Ryzen 7 5800X3D", os_name: "Arch Linux", core_count: 8 },
-    { id: 4, user_id: "user-test4", cpu_score: 8500, gpu_score: 25000, cpu_name: "Intel Core i7-12700K", os_name: "Fedora 38", core_count: 12 },
-    { id: 5, user_id: "user-test5", cpu_score: 6400, gpu_score: 8000, cpu_name: "AMD Ryzen 5 5600X", os_name: "Debian 12", core_count: 6 },
-    { id: 6, user_id: "user-test6", cpu_score: 4200, gpu_score: 3500, cpu_name: "Intel Core i5-10400F", os_name: "Pop!_OS 22.04", core_count: 6 },
-    { id: 7, user_id: "user-test7", cpu_score: 2100, gpu_score: 0, cpu_name: "Intel Core i5-4570", os_name: "Linux Mint 21.2", core_count: 4 },
+    { id: 1, user_id: "user-test1", cpu_score: 14200, gpu_score: 35000, cpu_name: "AMD Ryzen 9 7950X 16-Core Processor", os_name: "Linux Mint 21.2", core_count: 16, system_details: '{"os_name":"Linux Mint 21.2","kernel":"6.5.0-generic","cpu":"AMD Ryzen 9 7950X","motherboard":"ASUS ROG STRIX X670E-A","graphics":"NVIDIA GeForce RTX 4090","disks":"Samsung SSD 990 PRO 2TB"}' },
+    { id: 2, user_id: "user-test2", cpu_score: 12500, gpu_score: 42000, cpu_name: "Intel Core i9-13900K", os_name: "Ubuntu 22.04", core_count: 24, system_details: null },
+    { id: 3, user_id: "user-test3", cpu_score: 9800, gpu_score: 12000, cpu_name: "AMD Ryzen 7 5800X3D", os_name: "Arch Linux", core_count: 8, system_details: null },
+    { id: 4, user_id: "user-test4", cpu_score: 8500, gpu_score: 25000, cpu_name: "Intel Core i7-12700K", os_name: "Fedora 38", core_count: 12, system_details: null },
+    { id: 5, user_id: "user-test5", cpu_score: 6400, gpu_score: 8000, cpu_name: "AMD Ryzen 5 5600X", os_name: "Debian 12", core_count: 6, system_details: null },
+    { id: 6, user_id: "user-test6", cpu_score: 4200, gpu_score: 3500, cpu_name: "Intel Core i5-10400F", os_name: "Pop!_OS 22.04", core_count: 6, system_details: null },
+    { id: 7, user_id: "user-test7", cpu_score: 2100, gpu_score: 0, cpu_name: "Intel Core i5-4570", os_name: "Linux Mint 21.2", core_count: 4, system_details: null },
 ];
 
 let globalData = [];
@@ -113,7 +113,9 @@ function renderTable(searchFilter = "") {
         else if (globalRank === 3) { rowClass = "row-top3"; rankDisplay = '<i class="fa-solid fa-award"></i>'; }
 
         const tr = document.createElement("tr");
-        tr.className = rowClass;
+        tr.className = rowClass + " clickable-row";
+        tr.onclick = () => openModal(user);
+        
         const displayId = user.user_id ? user.user_id.substring(0, 8) + '...' : 'Anonyme';
         tr.innerHTML = `
             <td class="rank-col">#${rankDisplay}</td>
@@ -152,3 +154,71 @@ function animateValue(id, start, end, duration) {
     };
     window.requestAnimationFrame(step);
 }
+
+// Modal Logic
+function openModal(user) {
+    const modal = document.getElementById('config-modal');
+    if (!modal) return;
+    
+    // Fallbacks for basic info if system_details is null
+    document.getElementById('modal-user-id').innerText = `ID: ${user.user_id || 'Anonyme'}`;
+    
+    if (user.system_details) {
+        try {
+            const details = JSON.parse(user.system_details);
+            document.getElementById('modal-os').innerText = details.os_name || user.os_name;
+            document.getElementById('modal-kernel').innerText = `Kernel: ${details.kernel || 'Inconnu'}`;
+            document.getElementById('modal-cpu').innerText = `${details.cpu || user.cpu_name} (${user.core_count} cœurs)`;
+            document.getElementById('modal-mb').innerText = details.motherboard || 'Non renseignée';
+            document.getElementById('modal-ram').innerText = `${Math.round(user.memory_total_mb / 1024)} Go / ${(user.memory_total_mb).toLocaleString()} Mo`;
+            document.getElementById('modal-gpu').innerText = details.graphics || 'Non renseignée';
+            
+            // Format disks if it's a JSON array string inside the JSON object
+            let disksHtml = details.disks || 'Non renseigné';
+            try {
+                const disksObj = JSON.parse(details.disks);
+                if (disksObj && disksObj.blockdevices) {
+                    disksHtml = disksObj.blockdevices.map(d => 
+                        `<div class="disk-item"><i class="fa-solid fa-drive-solid"></i> ${d.name} - ${d.model || 'Inconnu'} (${d.size})</div>`
+                    ).join('');
+                }
+            } catch(e) {}
+            document.getElementById('modal-disks').innerHTML = disksHtml;
+            
+        } catch (e) {
+            console.error("Erreur parsing system_details", e);
+            fillBasicModal(user);
+        }
+    } else {
+        fillBasicModal(user);
+    }
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function fillBasicModal(user) {
+    document.getElementById('modal-os').innerText = user.os_name;
+    document.getElementById('modal-kernel').innerText = `Aucune info avancée (Ancien score)`;
+    document.getElementById('modal-cpu').innerText = `${user.cpu_name} (${user.core_count} cœurs)`;
+    document.getElementById('modal-mb').innerText = 'Non renseignée';
+    document.getElementById('modal-ram').innerText = `${Math.round(user.memory_total_mb / 1024)} Go`;
+    document.getElementById('modal-gpu').innerText = 'Non renseignée';
+    document.getElementById('modal-disks').innerHTML = 'Non renseigné';
+}
+
+function closeModal() {
+    const modal = document.getElementById('config-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Fermer la modale si on clique à l'extérieur
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('config-modal');
+    if (modal && e.target === modal) {
+        closeModal();
+    }
+});

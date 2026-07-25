@@ -107,6 +107,47 @@
             </section>
         </main>
         
+        <!-- Config Modal (Glassmorphism) -->
+        <div id="config-modal" class="modal-overlay">
+            <div class="modal-content">
+                <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-server"></i> Configuration Détaillée</h2>
+                    <p id="modal-user-id" style="color: var(--primary); font-family: monospace;">User ID: ---</p>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="config-grid">
+                        <div class="config-card">
+                            <h3><i class="fa-solid fa-desktop"></i> Système & OS</h3>
+                            <p id="modal-os">---</p>
+                            <p id="modal-kernel" class="text-muted">---</p>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fa-solid fa-microchip"></i> Processeur</h3>
+                            <p id="modal-cpu">---</p>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fa-brands fa-usb"></i> Carte Mère</h3>
+                            <p id="modal-mb">---</p>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fa-solid fa-memory"></i> Mémoire RAM</h3>
+                            <p id="modal-ram">---</p>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fa-solid fa-bolt"></i> Carte Graphique</h3>
+                            <p id="modal-gpu">---</p>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fa-solid fa-hard-drive"></i> Stockage</h3>
+                            <div id="modal-disks" class="disk-list">---</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer>
             <p>Propulsé par <strong>NemDiag</strong> &copy; 2026. L'outil ultime de diagnostic matériel.</p>
