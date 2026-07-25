@@ -329,6 +329,51 @@ footer {
     padding: 4rem 0 2rem;
     color: var(--text-muted);
     font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.nhtml-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+.nhtml-badge:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+.nhtml-badge span {
+    color: var(--text-muted);
+}
+.nhtml-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: color 0.2s;
+}
+.nhtml-link:hover {
+    color: #60a5fa;
+}
+.nhtml-git {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 1.1rem;
+    transition: color 0.2s;
+}
+.nhtml-git:hover {
+    color: var(--text-main);
 }
 
 /* Loader */
