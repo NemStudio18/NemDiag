@@ -2,13 +2,13 @@ const API_URL = "https://nemdiag.nhtml.ynh.fr/api/telemetry";
 
 // Mock data as fallback if API doesn't support GET or is offline
 const MOCK_DATA = [
-    { id: 1, cpu_score: 14200, gpu_score: 35000, cpu_name: "AMD Ryzen 9 7950X 16-Core Processor", os_name: "Linux Mint 21.2", cpu_cores: 16 },
-    { id: 2, cpu_score: 12500, gpu_score: 42000, cpu_name: "Intel Core i9-13900K", os_name: "Ubuntu 22.04", cpu_cores: 24 },
-    { id: 3, cpu_score: 9800, gpu_score: 12000, cpu_name: "AMD Ryzen 7 5800X3D", os_name: "Arch Linux", cpu_cores: 8 },
-    { id: 4, cpu_score: 8500, gpu_score: 25000, cpu_name: "Intel Core i7-12700K", os_name: "Fedora 38", cpu_cores: 12 },
-    { id: 5, cpu_score: 6400, gpu_score: 8000, cpu_name: "AMD Ryzen 5 5600X", os_name: "Debian 12", cpu_cores: 6 },
-    { id: 6, cpu_score: 4200, gpu_score: 3500, cpu_name: "Intel Core i5-10400F", os_name: "Pop!_OS 22.04", cpu_cores: 6 },
-    { id: 7, cpu_score: 2100, gpu_score: 0, cpu_name: "Intel Core i5-4570", os_name: "Linux Mint 21.2", cpu_cores: 4 },
+    { id: 1, cpu_score: 14200, gpu_score: 35000, cpu_name: "AMD Ryzen 9 7950X 16-Core Processor", os_name: "Linux Mint 21.2", core_count: 16 },
+    { id: 2, cpu_score: 12500, gpu_score: 42000, cpu_name: "Intel Core i9-13900K", os_name: "Ubuntu 22.04", core_count: 24 },
+    { id: 3, cpu_score: 9800, gpu_score: 12000, cpu_name: "AMD Ryzen 7 5800X3D", os_name: "Arch Linux", core_count: 8 },
+    { id: 4, cpu_score: 8500, gpu_score: 25000, cpu_name: "Intel Core i7-12700K", os_name: "Fedora 38", core_count: 12 },
+    { id: 5, cpu_score: 6400, gpu_score: 8000, cpu_name: "AMD Ryzen 5 5600X", os_name: "Debian 12", core_count: 6 },
+    { id: 6, cpu_score: 4200, gpu_score: 3500, cpu_name: "Intel Core i5-10400F", os_name: "Pop!_OS 22.04", core_count: 6 },
+    { id: 7, cpu_score: 2100, gpu_score: 0, cpu_name: "Intel Core i5-4570", os_name: "Linux Mint 21.2", core_count: 4 },
 ];
 
 let globalData = [];
@@ -116,7 +116,7 @@ function renderTable(searchFilter = "") {
         tr.innerHTML = `
             <td class="rank-col">#${rankDisplay}</td>
             <td style="font-weight:500;">${user.cpu_name}</td>
-            <td>${user.cpu_cores}</td>
+            <td>${user.core_count}</td>
             <td><span class="os-badge"><i class="fa-brands fa-linux"></i> ${user.os_name.split(' ')[0]}</span></td>
             <td class="score-col" style="color:var(--text-main);">${user.cpu_score.toLocaleString()}</td>
             <td class="score-col">${user.gpu_score > 0 ? user.gpu_score.toLocaleString() : '-'}</td>
