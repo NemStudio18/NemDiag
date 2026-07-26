@@ -198,8 +198,14 @@ async fn run_ram_test(duration: u64) {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
     
-    ram.stop();
+    // Arrêt non-bloquant : on signale l'arrêt sans bloquer le thread async
+    // (join() est synchrone et gèle Tauri sinon)
+    let handle = ram.stop_signal();
     let final_score = ram.get_throughput();
+    // Laisser le thread se terminer seul en arrière-plan
+    if let Some(h) = handle {
+        tokio::task::spawn_blocking(move || { let _ = h.join(); });
+    }
     LIVE_RAM_THROUGHPUT.store(final_score, Ordering::Relaxed);
     LAST_RAM_SCORE.store(final_score, Ordering::Relaxed);
 }

@@ -101,6 +101,13 @@ impl RamStress {
         }
     }
 
+    /// Signale l'arrêt sans bloquer (pour contextes async).
+    /// Retourne le JoinHandle pour que l'appelant puisse faire join en spawn_blocking.
+    pub fn stop_signal(&mut self) -> Option<thread::JoinHandle<()>> {
+        self.is_running.store(false, Ordering::SeqCst);
+        self.thread_handle.take()
+    }
+
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::SeqCst)
     }
