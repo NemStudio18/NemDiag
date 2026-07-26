@@ -11,10 +11,12 @@
     <!-- WebGL Visual Overlay (Hidden by default) -->
     <div id="webgl-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; background: black;">
         <canvas id="webgl-canvas" style="width: 100%; height: 100%;"></canvas>
-        <div id="webgl-ui" style="position: absolute; top: 20px; left: 20px; color: #00e676; font-family: monospace; font-size: 1.5rem; text-shadow: 0 0 5px black;">
-            [STRESS TEST GPU EN COURS]<br>
-            FPS: <span id="webgl-fps">0</span><br>
-            Calculs fractals : <span id="webgl-ops">0</span> MOp/s
+        <div id="webgl-ui" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; color: #00e676; font-family: monospace; font-size: 1.5rem; text-shadow: 0 0 5px black; pointer-events: none;">
+            <div style="position: absolute; top: 20px; left: 20px;">
+                [STRESS TEST GPU EN COURS]<br>
+                FPS: <span id="webgl-fps">0</span><br>
+                Calculs fractals : <span id="webgl-ops">0</span> MOp/s
+            </div>
         </div>
     </div>
 
@@ -776,7 +778,7 @@
                 let tickCount = 0;
                 if (type === 'GPU') {
                     canvas.style.display = 'block';
-                    uiText.innerHTML = `[STRESS TEST GPU EN COURS]<br>FPS: <span id="webgl-fps">0</span><br>Calculs fractals : <span id="webgl-ops">0</span> MOp/s`;
+                    uiText.innerHTML = `<div style="position: absolute; top: 20px; left: 20px;">[STRESS TEST GPU EN COURS]<br>FPS: <span id="webgl-fps">0</span><br>Calculs fractals : <span id="webgl-ops">0</span> MOp/s</div>`;
                     startWebGLStress();
                     visualizerInterval = setInterval(() => { opCount += Math.random()*500+1000; let el=document.getElementById('webgl-ops'); if(el) el.innerText=Math.floor(opCount); }, 100);
                 } else {
