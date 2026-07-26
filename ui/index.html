@@ -469,7 +469,7 @@
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('view-' + tabId).classList.add('active');
             document.getElementById('nav-' + tabId).classList.add('active');
-            if (tabId === 'dashboard') startRealtimeUpdates();
+            if (tabId === 'dashboard' || tabId === 'diagnostics') startRealtimeUpdates();
             else stopRealtimeUpdates();
             if (tabId === 'leaderboard') loadLeaderboard();
         }
@@ -663,6 +663,13 @@
                 ramHistory.shift(); ramHistory.push(ramPct);
                 drawSparkline('cpu-sparkline', cpuHistory, 100);
                 drawSparkline('ram-sparkline', ramHistory, 100);
+                drawSparkline('test-cpu-sparkline', cpuHistory, 100);
+                drawSparkline('test-ram-sparkline', ramHistory, 100);
+                
+                let activeCpuValue = document.getElementById('test-cpu-value');
+                if (activeCpuValue) activeCpuValue.innerText = cpuUsage + '%';
+                let activeRamValue = document.getElementById('test-ram-value');
+                if (activeRamValue) activeRamValue.innerText = ramPct.toFixed(1) + '%';
 
                 const tempList = document.getElementById('temp-list');
                 tempList.innerHTML = '';
@@ -780,20 +787,40 @@
                     let accentColor = type==='CPU'?'#00bfff':(type==='RAM'?'#7c3aed':'#f59e0b');
 
                     uiText.innerHTML = `
-                        <div style="text-align:center; padding: 2rem 1rem;">
+                        <div class="test-active-ui" style="text-align:center; padding: 1rem;">
                             <div style="font-size:0.85rem; letter-spacing:0.15em; color:#8892b0; margin-bottom:1.5rem;">[${title} EN COURS]</div>
+                            
+                            <!-- Graphiques CPU/RAM en direct -->
+                            <div style="display:flex; justify-content:center; gap:20px; margin-bottom: 20px; width:100%; max-width:400px; margin: 0 auto 1.5rem;">
+                                <div style="flex:1;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:5px; display:flex; justify-content:space-between;">
+                                        <span>CPU</span> <span id="test-cpu-value" style="color:var(--text-main); font-weight:bold;">0%</span>
+                                    </div>
+                                    <svg preserveAspectRatio="none" viewBox="0 0 300 40" style="width:100%; height:30px; background:rgba(0,0,0,0.2); border-radius:4px;">
+                                        <path id="test-cpu-sparkline" d="M0,40 L300,40" fill="rgba(255,51,102,0.1)" stroke="var(--primary)" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:5px; display:flex; justify-content:space-between;">
+                                        <span>RAM</span> <span id="test-ram-value" style="color:var(--text-main); font-weight:bold;">0%</span>
+                                    </div>
+                                    <svg preserveAspectRatio="none" viewBox="0 0 300 40" style="width:100%; height:30px; background:rgba(0,0,0,0.2); border-radius:4px;">
+                                        <path id="test-ram-sparkline" d="M0,40 L300,40" fill="rgba(0,230,118,0.1)" stroke="#00e676" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                            </div>
 
                             <!-- Ring loader animé -->
-                            <div style="position:relative; width:140px; height:140px; margin:0 auto 1.5rem;">
-                                <svg viewBox="0 0 140 140" style="width:140px;height:140px;transform:rotate(-90deg);">
-                                    <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
-                                    <circle id="loader-ring" cx="70" cy="70" r="60" fill="none" stroke="${accentColor}" stroke-width="8"
-                                        stroke-dasharray="377" stroke-dashoffset="377"
+                            <div style="position:relative; width:120px; height:120px; margin:0 auto 1.5rem;">
+                                <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
+                                    <circle id="loader-ring" cx="60" cy="60" r="50" fill="none" stroke="${accentColor}" stroke-width="8"
+                                        stroke-dasharray="314" stroke-dashoffset="314"
                                         style="transition: stroke-dashoffset 0.5s ease; filter: drop-shadow(0 0 6px ${accentColor});"/>
                                 </svg>
                                 <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-                                    <div id="generic-ops" style="font-size:2rem;font-weight:800;color:${accentColor};font-family:monospace;">0</div>
-                                    <div style="font-size:0.7rem;color:#8892b0;margin-top:2px;">${unit}</div>
+                                    <div id="generic-ops" style="font-size:1.5rem;font-weight:800;color:${accentColor};font-family:monospace;">0</div>
+                                    <div style="font-size:0.6rem;color:#8892b0;margin-top:2px;">${unit}</div>
                                 </div>
                             </div>
 
