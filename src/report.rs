@@ -205,7 +205,7 @@ pub fn generate_report(
                     .timeout(std::time::Duration::from_secs(10))
                     .build()
                     .unwrap_or_default();
-                let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/telemetry")
+                let _ = client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
                     .header("Content-Type", "application/json")
                     .body(telemetry_json)
                     .send()
