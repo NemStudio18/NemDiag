@@ -127,6 +127,11 @@ impl DiskStress {
         }
     }
 
+    pub fn stop_signal(&mut self) -> Option<thread::JoinHandle<()>> {
+        self.is_running.store(false, Ordering::SeqCst);
+        self.thread_handle.take()
+    }
+
     pub fn get_throughput(&self) -> u32 {
         self.throughput_mb_s.load(Ordering::Relaxed)
     }

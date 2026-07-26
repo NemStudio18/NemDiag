@@ -121,6 +121,11 @@ impl GpuStress {
         }
     }
 
+    pub fn stop_signal(&mut self) -> Option<thread::JoinHandle<()>> {
+        self.is_running.store(false, Ordering::SeqCst);
+        self.thread_handle.take()
+    }
+
     /// T13: Total GPU compute passes over the full test duration
     pub fn get_total_passes(&self) -> u64 {
         self.total_passes.load(Ordering::Relaxed)

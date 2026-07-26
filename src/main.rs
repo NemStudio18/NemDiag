@@ -227,8 +227,12 @@ async fn run_gpu_test(duration: u64) {
     let mut gpu = GpuStress::new();
     gpu.start();
     interruptible_sleep(duration).await;
-    gpu.stop();
-    // T13: Score = total compute passes * 50 (gives ~100 for iGPU, ~5000 for discrete GPU)
+    
+    let handle = gpu.stop_signal();
+    if let Some(h) = handle {
+        tokio::task::spawn_blocking(move || { let _ = h.join(); });
+    }
+    
     LAST_GPU_SCORE.store((gpu.get_total_passes() * 50) as u32, Ordering::Relaxed);
 }
 
@@ -274,8 +278,12 @@ async fn run_disk_test(duration: u64) {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
     
-    disk.stop();
+    let handle = disk.stop_signal();
     let final_score = disk.get_throughput();
+    if let Some(h) = handle {
+        tokio::task::spawn_blocking(move || { let _ = h.join(); });
+    }
+    
     LIVE_DISK_THROUGHPUT.store(final_score, Ordering::Relaxed);
     LAST_DISK_SCORE.store(final_score, Ordering::Relaxed);
 }
