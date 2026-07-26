@@ -6,4 +6,4 @@ Exec=nemdiag-rs
 Terminal=false
 Type=Application
 Categories=System;Settings;HardwareSettings;
-Icon=nemdiag
+Icon=/usr/share/icons/hicolor/512x512/apps/nemdiag.png

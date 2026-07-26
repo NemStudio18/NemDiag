@@ -122,7 +122,7 @@ pub fn generate_report(
         "Vitesse excellente (> 600 Mo/s). Vous possédez un SSD NVMe performant. Le chargement de votre OS et de vos applications est optimal.".to_string()
     };
 
-    let data = ReportData {
+    let mut data = ReportData {
         os_name: info.os_name,
         kernel_version: info.kernel_version,
         host_name: info.host_name,
@@ -222,6 +222,6 @@ pub fn generate_report(
         }
     }
     
-    let json = serde_json::to_string_pretty(&data)?;
+    let json = serde_json::to_string_pretty(&data).map_err(|e| format!("Failed to serialize: {}", e))?;
     Ok(json) // We return the JSON content directly to frontend instead of just the path
 }
