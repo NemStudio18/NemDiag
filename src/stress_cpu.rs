@@ -1,6 +1,6 @@
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::thread;
-use std::time::{Duration, Instant};
+
 
 pub struct CpuStress {
     is_running: Arc<AtomicBool>,
@@ -48,10 +48,6 @@ impl CpuStress {
         while let Some(handle) = self.threads.pop() {
             let _ = handle.join();
         }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
     }
 
     pub fn get_score(&self) -> u64 {

@@ -1,4 +1,4 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU32, AtomicU64}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU64}};
 use std::thread;
 
 pub struct GpuStress {
@@ -119,10 +119,6 @@ impl GpuStress {
         if let Some(handle) = self.thread_handle.take() {
             let _ = handle.join();
         }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
     }
 
     /// T13: Total GPU compute passes over the full test duration

@@ -108,10 +108,6 @@ impl RamStress {
         self.thread_handle.take()
     }
 
-    pub fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
-    }
-
     pub fn get_throughput(&self) -> u32 {
         self.throughput_mb_s.load(Ordering::Relaxed)
     }

@@ -1,5 +1,4 @@
-use sysinfo::{System, Disks, Networks, Components};
-use std::process::Command;
+use sysinfo::{System, Components};
 
 pub struct HardwareInfo {
     pub os_name: String,
@@ -9,8 +8,6 @@ pub struct HardwareInfo {
     pub core_count: usize,
     pub memory_total: u64,
     pub memory_used: u64,
-    pub swap_total: u64,
-    pub swap_used: u64,
 }
 
 #[derive(serde::Serialize)]
@@ -22,8 +19,6 @@ pub struct RealtimeInfo {
 
 pub struct HardwareMonitor {
     sys: System,
-    disks: Disks,
-    networks: Networks,
     components: Components,
 }
 
@@ -33,8 +28,6 @@ impl HardwareMonitor {
         sys.refresh_all();
         Self {
             sys,
-            disks: Disks::new_with_refreshed_list(),
-            networks: Networks::new_with_refreshed_list(),
             components: Components::new_with_refreshed_list(),
         }
     }
@@ -60,15 +53,12 @@ impl HardwareMonitor {
             core_count,
             memory_total: self.sys.total_memory(),
             memory_used: self.sys.used_memory(),
-            swap_total: self.sys.total_swap(),
-            swap_used: self.sys.used_swap(),
         }
     }
 
     pub fn get_cpu_usage(&self) -> f32 {
         self.sys.global_cpu_usage()
     }
-
     pub fn get_temperatures(&self) -> Vec<(String, f32)> {
         self.components
             .iter()
@@ -83,36 +73,6 @@ impl HardwareMonitor {
             })
             .collect()
     }
-}
-
-pub fn get_baseboard_info_sudo() -> Result<String, String> {
-    // This function will use pkexec to run dmidecode
-    // Note: We use dmidecode for baseboard as it's the standard on Linux.
-    let output = Command::new("pkexec")
-        .arg("dmidecode")
-        .arg("-t")
-        .arg("baseboard")
-        .output()
-        .map_err(|e| format!("Failed to execute pkexec: {}", e))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
-}
-
-pub fn get_smart_info(disk_path: &str) -> Result<String, String> {
-    let output = Command::new("pkexec")
-        .arg("smartctl")
-        .arg("-H")
-        .arg("-A")
-        .arg(disk_path)
-        .output()
-        .map_err(|e| format!("Failed to execute pkexec smartctl: {}", e))?;
-
-    // smartctl returns bitmask exit statuses, so we can't strictly check for success
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 use nvml_wrapper::Nvml;
@@ -136,7 +96,6 @@ pub fn get_nvml_info() -> Vec<(String, u32, u32)> {
     }
     nv_info
 }
-
 #[derive(serde::Serialize, Default)]
 pub struct DetailedSystemInfo {
     pub system_details: String,

@@ -29,6 +29,6 @@ depends = "$auto"
 assets = [
     ["target/release/nemdiag-rs", "usr/bin/", "755"],
     ["nemdiag.desktop", "usr/share/applications/", "644"],
-    ["icons/512x512.png", "usr/share/icons/hicolor/512x512/apps/nemdiag.png", "644"]
+    ["icons/icon.png", "usr/share/icons/hicolor/512x512/apps/nemdiag.png", "644"]
 ]
 
