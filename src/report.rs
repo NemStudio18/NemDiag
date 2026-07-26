@@ -50,6 +50,9 @@ pub struct ReportData {
 
     // NVML data if available
     pub nvidia_gpus: Vec<NvidiaGpuData>,
+
+    // Telemetry ID from the server
+    pub run_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -76,52 +79,48 @@ pub fn generate_report(
         utilization,
     }).collect();
 
-    let mut cpu_advice = String::new();
-    if cpu_score < 4000 {
-        cpu_advice = format!("Score : {}. Score plutôt faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement.", cpu_score);
+    let mut cpu_advice = if cpu_score < 4000 {
+        format!("Score : {}. Score plutôt faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement.", cpu_score)
     } else if cpu_score < 10000 {
-        cpu_advice = format!("Score : {}. Score moyen (bureautique avancée). Pour vous donner un ordre d'idée, un CPU de bureau classique récent tourne autour de 6000-8000. Il risque de peiner sur du traitement très lourd.", cpu_score);
+        format!("Score : {}. Score moyen (bureautique avancée). Pour vous donner un ordre d'idée, un CPU de bureau classique récent tourne autour de 6000-8000. Il risque de peiner sur du traitement très lourd.", cpu_score)
     } else {
-        cpu_advice = format!("Score : {}. Excellent score ! Votre processeur est surpuissant et très performant pour le multitâche lourd, le jeu ou le rendu 3D. (Moyenne haute : ~10000).", cpu_score);
-    }
+        format!("Score : {}. Excellent score ! Votre processeur est surpuissant et très performant pour le multitâche lourd, le jeu ou le rendu 3D. (Moyenne haute : ~10000).", cpu_score)
+    };
 
     let max_temp = monitor.get_temperatures().into_iter().map(|(_, t)| t).fold(0.0, f32::max);
     if max_temp > 85.0 {
         cpu_advice.push_str(" AVERTISSEMENT : Surchauffe détectée (> 85°C). Pensez à dépoussiérer les ventilateurs ou changer la pâte thermique.");
     }
 
-    let mut gpu_advice = String::new();
-    if gpu_score == 0 {
-        gpu_advice = "Aucun GPU matériel performant détecté, ou test impossible (ex: serveur sans interface graphique, machine virtuelle).".to_string();
+    let gpu_advice = if gpu_score == 0 {
+        "Aucun GPU matériel performant détecté, ou test impossible (ex: serveur sans interface graphique, machine virtuelle).".to_string()
     } else if gpu_score < 300 {
-        gpu_advice = "Score faible. Puce graphique intégrée ou ancienne. Suffisant pour l'affichage classique, mais inadapté pour le jeu 3D ou le montage vidéo.".to_string();
+        "Score faible. Puce graphique intégrée ou ancienne. Suffisant pour l'affichage classique, mais inadapté pour le jeu 3D ou le montage vidéo.".to_string()
     } else if gpu_score < 1500 {
-        gpu_advice = "Score convenable. GPU dédié de milieu de gamme. Permet de jouer dans des conditions acceptables à la plupart des jeux.".to_string();
+        "Score convenable. GPU dédié de milieu de gamme. Permet de jouer dans des conditions acceptables à la plupart des jeux.".to_string()
     } else {
-        gpu_advice = "Très haut score ! Carte graphique très performante, taillée pour la haute résolution ou les traitements lourds (IA, 3D).".to_string();
-    }
+        "Très haut score ! Carte graphique très performante, taillée pour la haute résolution ou les traitements lourds (IA, 3D).".to_string()
+    };
 
-    let mut ram_advice = String::new();
-    if ram_score < 5000 {
-        ram_advice = "Bande passante très faible (< 5000 Mo/s). Vous utilisez très certainement de la DDR3 ancienne ou vous êtes en Single-Channel (une seule barrette installée). Ajouter une barrette identique doublerait vos performances.".to_string();
+    let mut ram_advice = if ram_score < 5000 {
+        "Bande passante très faible (< 5000 Mo/s). Vous utilisez très certainement de la DDR3 ancienne ou vous êtes en Single-Channel (une seule barrette installée). Ajouter une barrette identique doublerait vos performances.".to_string()
     } else if ram_score < 12000 {
-        ram_advice = "Bande passante correcte (DDR4 classique ou DDR3 très rapide en Dual-Channel). Suffisant pour 90% des usages.".to_string();
+        "Bande passante correcte (DDR4 classique ou DDR3 très rapide en Dual-Channel). Suffisant pour 90% des usages.".to_string()
     } else {
-        ram_advice = "Excellente bande passante (DDR4/DDR5 haute fréquence en Dual/Quad Channel). Mémoire extrêmement rapide.".to_string();
-    }
+        "Excellente bande passante (DDR4/DDR5 haute fréquence en Dual/Quad Channel). Mémoire extrêmement rapide.".to_string()
+    };
 
     if info.memory_total > 0 && (info.memory_used as f64 / info.memory_total as f64) > 0.85 {
         ram_advice.push_str(" AVERTISSEMENT : Plus de 85% de la RAM est actuellement utilisée ! Votre système risque de ralentir (swap). Envisagez d'ajouter de la mémoire.");
     }
 
-    let mut disk_advice = String::new();
-    if disk_score < 150 {
-        disk_advice = "Vitesse extrêmement faible. Il s'agit probablement d'un vieux disque dur mécanique (HDD) ou d'un SSD SATA défectueux. Remplacer ce disque par un SSD NVMe donnerait une seconde vie spectaculaire à votre PC.".to_string();
+    let disk_advice = if disk_score < 150 {
+        "Vitesse extrêmement faible. Il s'agit probablement d'un vieux disque dur mécanique (HDD) ou d'un SSD SATA défectueux. Remplacer ce disque par un SSD NVMe donnerait une seconde vie spectaculaire à votre PC.".to_string()
     } else if disk_score < 600 {
-        disk_advice = "Vitesse moyenne (limite SATA 3 : ~500 Mo/s). Vous avez un SSD SATA. Les performances sont très correctes pour un usage quotidien.".to_string();
+        "Vitesse moyenne (limite SATA 3 : ~500 Mo/s). Vous avez un SSD SATA. Les performances sont très correctes pour un usage quotidien.".to_string()
     } else {
-        disk_advice = "Vitesse excellente (> 600 Mo/s). Vous possédez un SSD NVMe performant. Le chargement de votre OS et de vos applications est optimal.".to_string();
-    }
+        "Vitesse excellente (> 600 Mo/s). Vous possédez un SSD NVMe performant. Le chargement de votre OS et de vos applications est optimal.".to_string()
+    };
 
     let data = ReportData {
         os_name: info.os_name,
@@ -147,6 +146,7 @@ pub fn generate_report(
         ram_advice,
         disk_advice,
         nvidia_gpus,
+        run_id: None,
     };
 
     let json = serde_json::to_string_pretty(&data).map_err(|e| format!("Failed to serialize: {}", e))?;
@@ -200,19 +200,28 @@ pub fn generate_report(
             system_details: Some(safe_details.to_string()),
         };
         if let Ok(telemetry_json) = serde_json::to_string(&payload) {
-            tokio::spawn(async move {
-                let client = reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(10))
-                    .build()
-                    .unwrap_or_default();
-                let _ = client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
-                    .header("Content-Type", "application/json")
-                    .body(telemetry_json)
-                    .send()
-                    .await;
-            });
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap_or_default();
+            
+            if let Ok(resp) = client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
+                .header("Content-Type", "application/json")
+                .body(telemetry_json)
+                .send() {
+                if let Ok(resp_json) = resp.json::<serde_json::Value>() {
+                    if let Some(id_val) = resp_json.get("id") {
+                        if let Some(id_str) = id_val.as_str() {
+                            data.run_id = Some(id_str.to_string());
+                        } else if let Some(id_u64) = id_val.as_u64() {
+                            data.run_id = Some(id_u64.to_string());
+                        }
+                    }
+                }
+            }
         }
     }
     
+    let json = serde_json::to_string_pretty(&data)?;
     Ok(json) // We return the JSON content directly to frontend instead of just the path
 }

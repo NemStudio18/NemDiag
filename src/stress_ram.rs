@@ -57,8 +57,9 @@ impl RamStress {
                         let mb_s = (bytes_processed as f64 / 1_048_576.0 / elapsed) as u32;
                         throughput.store(mb_s, Ordering::Relaxed);
                         bytes_processed = 0;
-                        last_update = Instant::now();
+                        last_update = std::time::Instant::now();
                     }
+                    std::thread::sleep(std::time::Duration::from_millis(1)); // PREVENT OS FREEZE
                 }
 
                 // Vérification par chunks de 32 Mo
@@ -76,8 +77,9 @@ impl RamStress {
                         let mb_s = (bytes_processed as f64 / 1_048_576.0 / elapsed) as u32;
                         throughput.store(mb_s, Ordering::Relaxed);
                         bytes_processed = 0;
-                        last_update = Instant::now();
+                        last_update = std::time::Instant::now();
                     }
+                    std::thread::sleep(std::time::Duration::from_millis(1)); // PREVENT OS FREEZE
                 }
 
                 pattern_index = (pattern_index + 1) % patterns.len();

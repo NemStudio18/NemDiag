@@ -274,6 +274,7 @@
                         <div class="global-score-circle">
                             <span id="global-score-value">--</span><span style="font-size: 1rem; color: #8892b0;">/100</span>
                         </div>
+                        <a id="web-leaderboard-btn" href="#" target="_blank" style="display: none; margin-top: 15px; color: var(--primary); text-decoration: none; border: 1px solid var(--primary); padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; transition: all 0.3s;"><i class="fa-solid fa-globe"></i> Voir mon classement en ligne</a>
                     </div>
                 </div>
 
@@ -872,6 +873,12 @@
             if (global_score < 40) globalScoreEl.style.color = '#dc3545';
             else if (global_score < 75) globalScoreEl.style.color = '#ffc107';
             else globalScoreEl.style.color = '#28a745';
+            
+            if (reportJson.run_id) {
+                let webBtn = document.getElementById('web-leaderboard-btn');
+                webBtn.href = `https://diag-nem.flexcb.fr/detail.php?id=${reportJson.run_id}`;
+                webBtn.style.display = 'inline-block';
+            }
 
             resetDiagnosticUI();
             // T17: Unlock results tab after successful test
