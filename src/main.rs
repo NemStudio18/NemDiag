@@ -56,6 +56,7 @@ fn get_realtime_stats(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) ->
         cpu_usage: monitor.get_cpu_usage(),
         memory_used: monitor.get_static_info().memory_used,
         temperatures: monitor.get_temperatures(),
+        fan_speeds: monitor.get_fan_speeds(),
     }
 }
 
@@ -92,22 +93,46 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
         (info.memory_total / 1024 / 1024, info.core_count, temps)
     };
     
+    // CPU & RAM Scores
+    let c_score = LAST_CPU_SCORE.load(Ordering::Relaxed);
+    let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
+    
     // RAM Check
-    if ram_total_mb < 8000 {
-        resources_advice.push_str("⚠️ <strong>Mémoire faible</strong> : Vous avez moins de 8 Go de RAM. Une mise à niveau est fortement recommandée pour la fluidité.<br>");
-    } else if ram_total_mb < 16000 {
-        resources_advice.push_str("✅ <strong>Mémoire adéquate</strong> : Vos 8-16 Go sont suffisants pour un usage courant.<br>");
+    if r_score > 0 {
+        if r_score < 5000 {
+            resources_advice.push_str(&format!("⚠️ <strong>RAM Lente (Score: {})</strong> : Bande passante faible. Vous êtes sûrement en Single-Channel (une seule barrette). Ajouter une barrette doublerait vos performances.<br>", r_score));
+        } else if r_score < 12000 {
+            resources_advice.push_str(&format!("✅ <strong>RAM Correcte (Score: {})</strong> : Bande passante suffisante pour un usage courant.<br>", r_score));
+        } else {
+            resources_advice.push_str(&format!("🚀 <strong>RAM Rapide (Score: {})</strong> : Excellente bande passante, mémoire très performante.<br>", r_score));
+        }
     } else {
-        resources_advice.push_str("🚀 <strong>Mémoire excellente</strong> : Plus de 16 Go, parfait pour les tâches lourdes.<br>");
+        if ram_total_mb < 8000 {
+            resources_advice.push_str("⚠️ <strong>Mémoire faible</strong> : Moins de 8 Go de RAM. Une mise à niveau est recommandée.<br>");
+        } else if ram_total_mb < 16000 {
+            resources_advice.push_str("✅ <strong>Mémoire adéquate</strong> : Vos 8-16 Go sont suffisants pour un usage courant.<br>");
+        } else {
+            resources_advice.push_str("🚀 <strong>Mémoire excellente</strong> : Plus de 16 Go, parfait pour les tâches lourdes.<br>");
+        }
     }
     
     // CPU Check
-    if core_count < 4 {
-        resources_advice.push_str("⚠️ <strong>Processeur vieillissant</strong> : Moins de 4 cœurs détectés. Multitâche limité.<br>");
-    } else if core_count <= 8 {
-        resources_advice.push_str("✅ <strong>Processeur polyvalent</strong> : Bonne capacité pour le jeu et le quotidien.<br>");
+    if c_score > 0 {
+        if c_score < 4000 {
+            resources_advice.push_str(&format!("⚠️ <strong>Processeur lent (Score: {})</strong> : Score faible, ce processeur risque de peiner sur du multitâche lourd.<br>", c_score));
+        } else if c_score < 10000 {
+            resources_advice.push_str(&format!("✅ <strong>Processeur moyen (Score: {})</strong> : Bonne capacité pour le jeu et le quotidien.<br>", c_score));
+        } else {
+            resources_advice.push_str(&format!("🚀 <strong>Processeur performant (Score: {})</strong> : Puissance de calcul massive pour la productivité.<br>", c_score));
+        }
     } else {
-        resources_advice.push_str("🚀 <strong>Processeur performant</strong> : Puissance de calcul massive pour la productivité.<br>");
+        if core_count < 4 {
+            resources_advice.push_str("⚠️ <strong>Processeur vieillissant</strong> : Moins de 4 cœurs détectés. Multitâche limité.<br>");
+        } else if core_count <= 8 {
+            resources_advice.push_str("✅ <strong>Processeur polyvalent</strong> : Bonne capacité pour le jeu et le quotidien.<br>");
+        } else {
+            resources_advice.push_str("🚀 <strong>Processeur performant</strong> : Puissance de calcul massive pour la productivité.<br>");
+        }
     }
     
     // Thermal Check

@@ -15,6 +15,7 @@ pub struct RealtimeInfo {
     pub cpu_usage: f32,
     pub memory_used: u64,
     pub temperatures: Vec<(String, f32)>,
+    pub fan_speeds: Vec<(String, u32)>,
 }
 
 pub struct HardwareMonitor {
@@ -72,6 +73,35 @@ impl HardwareMonitor {
                 }
             })
             .collect()
+    }
+
+    pub fn get_fan_speeds(&self) -> Vec<(String, u32)> {
+        let mut fans = Vec::new();
+        if let Ok(entries) = std::fs::read_dir("/sys/class/hwmon") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = std::fs::read_to_string(path.join("name")).unwrap_or_default().trim().to_string();
+                if let Ok(files) = std::fs::read_dir(&path) {
+                    for f in files.flatten() {
+                        let fname = f.file_name().to_string_lossy().to_string();
+                        if fname.starts_with("fan") && fname.ends_with("_input") {
+                            if let Ok(val_str) = std::fs::read_to_string(f.path()) {
+                                if let Ok(rpm) = val_str.trim().parse::<u32>() {
+                                    if rpm > 0 {
+                                        // Attempt to get label if exists
+                                        let label_file = fname.replace("_input", "_label");
+                                        let label = std::fs::read_to_string(path.join(label_file))
+                                            .unwrap_or_else(|_| format!("{} - {}", name, fname));
+                                        fans.push((label.trim().to_string(), rpm));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        fans
     }
 }
 

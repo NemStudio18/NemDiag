@@ -60,23 +60,39 @@
                 <div id="dash-resume" class="dash-content active">
                     <div class="dashboard-grid">
                         <div class="dash-card">
-                            <h3>Utilisation CPU</h3>
+                            <h3><i class="fa-solid fa-microchip"></i> Utilisation CPU</h3>
+                            <div class="sparkline-container" style="height: 40px; margin-bottom: 10px;">
+                                <svg preserveAspectRatio="none" viewBox="0 0 300 40" style="width:100%; height:100%;">
+                                    <path id="cpu-sparkline" d="M0,40 L300,40" fill="rgba(255,51,102,0.1)" stroke="var(--primary)" stroke-width="2"/>
+                                </svg>
+                            </div>
                             <div class="gauge-container">
                                 <div class="gauge-bar" id="cpu-gauge" style="width: 0%;"></div>
                             </div>
                             <p id="cpu-value" class="gauge-text">0%</p>
                         </div>
                         <div class="dash-card">
-                            <h3>Utilisation Mémoire</h3>
+                            <h3><i class="fa-solid fa-memory"></i> Utilisation Mémoire</h3>
+                            <div class="sparkline-container" style="height: 40px; margin-bottom: 10px;">
+                                <svg preserveAspectRatio="none" viewBox="0 0 300 40" style="width:100%; height:100%;">
+                                    <path id="ram-sparkline" d="M0,40 L300,40" fill="rgba(0,230,118,0.1)" stroke="#00e676" stroke-width="2"/>
+                                </svg>
+                            </div>
                             <div class="gauge-container">
-                                <div class="gauge-bar" id="ram-gauge" style="width: 0%;"></div>
+                                <div class="gauge-bar" id="ram-gauge" style="width: 0%; background: #00e676;"></div>
                             </div>
                             <p id="ram-value" class="gauge-text">0 MB / 0 MB</p>
                         </div>
                         <div class="dash-card temperatures">
-                            <h3>Températures</h3>
+                            <h3><i class="fa-solid fa-temperature-half"></i> Températures</h3>
                             <ul id="temp-list">
                                 <li>Chargement...</li>
+                            </ul>
+                        </div>
+                        <div class="dash-card fans">
+                            <h3><i class="fa-solid fa-fan fa-spin" style="color: #3b82f6;"></i> Ventilateurs</h3>
+                            <ul id="fan-list">
+                                <li>Aucun ventilateur détecté</li>
                             </ul>
                         </div>
                     </div>
@@ -425,6 +441,22 @@
         let lbSortKey = 'cpu_score';
         let lbSortAsc = false;
 
+        let cpuHistory = Array(30).fill(0);
+        let ramHistory = Array(30).fill(0);
+
+        function drawSparkline(id, historyData, maxVal) {
+            let path = document.getElementById(id);
+            if (!path) return;
+            let d = `M0,40 `;
+            for(let i = 0; i < historyData.length; i++) {
+                let x = (i / (historyData.length - 1)) * 300;
+                let y = 40 - (Math.min(historyData[i] / maxVal, 1) * 40);
+                d += `L${x},${y} `;
+            }
+            d += `L300,40 Z`;
+            path.setAttribute('d', d);
+        }
+
         function switchDashTab(tabId) {
             document.querySelectorAll('.dash-tab').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.dash-content').forEach(el => el.classList.remove('active'));
@@ -562,6 +594,27 @@
                 else applyConsent(consent === 'true');
                 document.getElementById('telemetry-optin').addEventListener('change', e => setConsent(e.target.checked));
                 const detailedInfo = await invoke('get_detailed_system_info');
+                function formatDetailCards(text) {
+                    if (!text || text.trim() === '') return '<div style="color:var(--text-muted);">Non détecté</div>';
+                    const lines = text.split('\n').filter(l => l.trim() !== '');
+                    let html = '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-top:15px;">';
+                    lines.forEach(line => {
+                        let parts = line.split(':');
+                        if(parts.length >= 2) {
+                            let key = parts.shift().trim();
+                            let val = parts.join(':').trim();
+                            html += `<div style="background:var(--card-bg); padding:12px; border-radius:8px; border:1px solid var(--border);">
+                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:1px;">${key}</div>
+                                        <div style="font-size:1rem; font-weight:600;">${val}</div>
+                                     </div>`;
+                        } else {
+                            html += `<div style="grid-column: 1 / -1; font-weight:600; padding-top:10px; border-top:1px solid var(--border); margin-top:5px; white-space:pre-wrap; font-size:0.9rem;">${line}</div>`;
+                        }
+                    });
+                    html += '</div>';
+                    return html;
+                }
+
                 try {
                     const disksJson = JSON.parse(detailedInfo.disks_details);
                     let formattedDisks = "";
@@ -570,17 +623,19 @@
                             formattedDisks += `Nom: ${d.name||'N/A'}\nModèle: ${d.model||'N/A'}\nTaille: ${d.size||'N/A'}\nType: ${d.type||'N/A'}\nMontage: ${d.mountpoint||'N/A'}\n\n`;
                         });
                     }
-                    document.getElementById('detail-storage-text').innerText = formattedDisks || detailedInfo.disks_details;
+                    document.getElementById('detail-storage-text').innerHTML = formatDetailCards(formattedDisks || detailedInfo.disks_details);
                 } catch(e) {
-                    document.getElementById('detail-storage-text').innerText = detailedInfo.disks_details;
+                    document.getElementById('detail-storage-text').innerHTML = formatDetailCards(detailedInfo.disks_details);
                 }
-                document.getElementById('detail-cpu-text').innerText = detailedInfo.cpu_details;
-                document.getElementById('detail-ram-text').innerText = detailedInfo.ram_details;
-                document.getElementById('detail-mb-text').innerText = detailedInfo.motherboard;
-                document.getElementById('detail-gpu-text').innerText = detailedInfo.gpu_details || "Non détecté";
-                document.getElementById('detail-battery-text').innerText = detailedInfo.battery_details || "Pas de batterie détectée";
-                document.getElementById('detail-display-text').innerText = detailedInfo.display_details || "Non détecté";
-                document.getElementById('detail-usb-text').innerText = detailedInfo.usb_details || "Non détecté";
+                document.getElementById('detail-system-text').innerHTML = formatDetailCards(detailedInfo.system_details);
+                document.getElementById('detail-bios-text').innerHTML = formatDetailCards(detailedInfo.bios_details);
+                document.getElementById('detail-mb-text').innerHTML = formatDetailCards(detailedInfo.motherboard);
+                document.getElementById('detail-cpu-text').innerHTML = formatDetailCards(detailedInfo.cpu_details);
+                document.getElementById('detail-ram-text').innerHTML = formatDetailCards(detailedInfo.ram_details);
+                document.getElementById('detail-gpu-text').innerHTML = formatDetailCards(detailedInfo.gpu_details || "Non détecté");
+                document.getElementById('detail-battery-text').innerHTML = formatDetailCards(detailedInfo.battery_details || "Pas de batterie détectée");
+                document.getElementById('detail-display-text').innerHTML = formatDetailCards(detailedInfo.display_details || "Non détecté");
+                document.getElementById('detail-usb-text').innerHTML = formatDetailCards(detailedInfo.usb_details || "Non détecté");
             } catch (e) { console.error(e); }
         }
 
@@ -604,16 +659,34 @@
                 let ramPct = (ramUsedMb / memTotalMb) * 100;
                 document.getElementById('ram-gauge').style.width = ramPct + '%';
                 document.getElementById('ram-value').innerText = `${ramUsedMb.toFixed(0)} MB / ${memTotalMb} MB`;
+                cpuHistory.shift(); cpuHistory.push(stats.cpu_usage);
+                ramHistory.shift(); ramHistory.push(ramPct);
+                drawSparkline('cpu-sparkline', cpuHistory, 100);
+                drawSparkline('ram-sparkline', ramHistory, 100);
+
                 const tempList = document.getElementById('temp-list');
                 tempList.innerHTML = '';
                 if (stats.temperatures.length === 0) {
-                    tempList.innerHTML = '<li>Aucun capteur détecté</li>';
+                    tempList.innerHTML = '<li style="color:var(--text-muted);">Aucun capteur détecté</li>';
                 } else {
                     stats.temperatures.forEach(t => {
                         let li = document.createElement('li');
                         li.innerText = `${t[0]} : ${t[1].toFixed(1)} °C`;
+                        if(t[1] > 80) li.style.color = 'var(--primary)';
                         tempList.appendChild(li);
                     });
+                }
+                
+                const fanList = document.getElementById('fan-list');
+                if (stats.fan_speeds && stats.fan_speeds.length > 0) {
+                    fanList.innerHTML = '';
+                    stats.fan_speeds.forEach(f => {
+                        let li = document.createElement('li');
+                        li.innerHTML = `${f[0]} : <strong>${f[1]} RPM</strong>`;
+                        fanList.appendChild(li);
+                    });
+                } else {
+                    fanList.innerHTML = '<li style="color:var(--text-muted);">Aucun ventilateur détecté</li>';
                 }
             } catch (e) { console.error(e); }
         }
