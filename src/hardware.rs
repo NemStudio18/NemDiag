@@ -152,68 +152,123 @@ pub struct DetailedSystemInfo {
 }
 
 pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+    use std::fs;
+    use std::process::Command;
 
-    // Security fix (T4): pass script via stdin instead of writing to /tmp
-    // This eliminates the TOCTOU race condition vulnerability.
-    let script = r#"
-echo "{"
-echo "\"system\": \"$(dmidecode -t system 2>/dev/null | base64 -w 0)\","
-echo "\"bios\": \"$(dmidecode -t bios 2>/dev/null | base64 -w 0)\","
-echo "\"motherboard\": \"$(dmidecode -t baseboard 2>/dev/null | base64 -w 0)\","
-echo "\"memory\": \"$(dmidecode -t memory 2>/dev/null | base64 -w 0)\","
-echo "\"cpu\": \"$(lscpu 2>/dev/null | base64 -w 0)\","
-echo "\"disks\": \"$(lsblk -J -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA 2>/dev/null | base64 -w 0)\","
-echo "\"usb\": \"$(lsusb 2>/dev/null | base64 -w 0)\","
-echo "\"gpu\": \"$(lspci -vnn 2>/dev/null | grep -i -A 12 'vga\|3d\|display' | base64 -w 0)\","
-echo "\"battery\": \"$(upower -i $(upower -e 2>/dev/null | grep 'BAT' | head -n 1) 2>/dev/null | base64 -w 0)\","
-echo "\"display\": \"$(xrandr 2>/dev/null | grep -E ' connected|[*]' | base64 -w 0)\""
-echo "}"
-"#;
-
-    let mut child = Command::new("pkexec")
-        .arg("sh")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn pkexec: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(script.as_bytes()).map_err(|e| e.to_string())?;
-    }
-
-    let output = child.wait_with_output()
-        .map_err(|e| format!("Failed to wait for script: {}", e))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-    }
-
-    let json_str = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(&json_str).map_err(|e| e.to_string())?;
-
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
-    
-    let decode = |v: &serde_json::Value, key: &str| -> String {
-        v.get(key)
-            .and_then(|v| v.as_str())
-            .and_then(|s| STANDARD.decode(s).ok())
-            .map(|b| String::from_utf8_lossy(&b).to_string())
-            .unwrap_or_else(|| "Information non disponible".to_string())
+    // Lecture directe sysfs/proc — pas besoin de root
+    let read_dmi = |field: &str| -> String {
+        fs::read_to_string(format!("/sys/class/dmi/id/{}", field))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "Non disponible".to_string())
     };
 
+    // Infos système
+    let product_name   = read_dmi("product_name");
+    let product_version = read_dmi("product_version");
+    let sys_vendor     = read_dmi("sys_vendor");
+    let system_details = format!(
+        "Fabricant : {}\nProduit   : {} {}\n",
+        sys_vendor, product_name, product_version
+    );
+
+    // BIOS
+    let bios_vendor  = read_dmi("bios_vendor");
+    let bios_version = read_dmi("bios_version");
+    let bios_date    = read_dmi("bios_date");
+    let bios_details = format!(
+        "Fabriquant : {}\nVersion    : {}\nDate       : {}\n",
+        bios_vendor, bios_version, bios_date
+    );
+
+    // Carte mère
+    let board_vendor  = read_dmi("board_vendor");
+    let board_name    = read_dmi("board_name");
+    let board_version = read_dmi("board_version");
+    let motherboard = format!(
+        "Fabricant : {}\nModèle    : {}\nVersion   : {}\n",
+        board_vendor, board_name, board_version
+    );
+
+    // CPU — lscpu
+    let cpu_details = Command::new("lscpu")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_else(|_| "lscpu non disponible".to_string());
+
+    // RAM — /proc/meminfo
+    let ram_details = fs::read_to_string("/proc/meminfo")
+        .unwrap_or_else(|_| "Non disponible".to_string());
+
+    // Disques — lsblk
+    let disks_details = Command::new("lsblk")
+        .args(["-o", "NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_else(|_| "lsblk non disponible".to_string());
+
+    // USB — lsusb
+    let usb_details = Command::new("lsusb")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_else(|_| "lsusb non disponible".to_string());
+
+    // GPU — lspci
+    let gpu_details = Command::new("lspci")
+        .args(["-vmm"])
+        .output()
+        .map(|o| {
+            let raw = String::from_utf8_lossy(&o.stdout);
+            raw.lines()
+                .collect::<Vec<_>>()
+                .split(|l| l.is_empty())
+                .filter(|block| block.iter().any(|l| {
+                    let lo = l.to_lowercase();
+                    lo.contains("vga") || lo.contains("3d") || lo.contains("display")
+                        || lo.contains("nvidia") || lo.contains("amd")
+                }))
+                .map(|b| b.join("\n"))
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        })
+        .unwrap_or_else(|_| "lspci non disponible".to_string());
+
+    // Batterie
+    let battery_details = std::fs::read_dir("/sys/class/power_supply")
+        .ok()
+        .and_then(|mut d| d.find(|e| {
+            e.as_ref().ok().map_or(false, |e| {
+                e.file_name().to_string_lossy().starts_with("BAT")
+            })
+        }))
+        .and_then(|e| e.ok())
+        .map(|e| {
+            let base = e.path();
+            let cap  = fs::read_to_string(base.join("capacity")).unwrap_or_default().trim().to_string();
+            let stat = fs::read_to_string(base.join("status")).unwrap_or_default().trim().to_string();
+            format!("Capacité : {}%\nÉtat : {}\n", cap, stat)
+        })
+        .unwrap_or_else(|| "Aucune batterie détectée".to_string());
+
+    // Affichage — xrandr si disponible
+    let display_details = Command::new("xrandr")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .filter(|l| l.contains(" connected") || l.contains('*'))
+            .collect::<Vec<_>>()
+            .join("\n"))
+        .unwrap_or_else(|_| "xrandr non disponible".to_string());
+
     Ok(DetailedSystemInfo {
-        system_details: decode(&parsed, "system"),
-        bios_details: decode(&parsed, "bios"),
-        motherboard: decode(&parsed, "motherboard"),
-        cpu_details: decode(&parsed, "cpu"),
-        ram_details: decode(&parsed, "memory"),
-        disks_details: decode(&parsed, "disks"),
-        usb_details: decode(&parsed, "usb"),
-        gpu_details: decode(&parsed, "gpu"),
-        battery_details: decode(&parsed, "battery"),
-        display_details: decode(&parsed, "display"),
+        system_details,
+        bios_details,
+        motherboard,
+        cpu_details,
+        ram_details,
+        disks_details,
+        usb_details,
+        gpu_details,
+        battery_details,
+        display_details,
     })
 }

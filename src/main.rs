@@ -122,20 +122,42 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
         thermal_advice = format!("✅ <strong>Températures excellentes ({}°C max)</strong> : Votre système est bien refroidi au repos.", max_temp);
     }
     
-    // Drivers Check
-    let output = std::process::Command::new("ubuntu-drivers")
-        .arg("devices")
-        .output();
-        
-    if let Ok(out) = output {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        if stdout.contains("recommended") {
-            drivers_advice = "⚠️ <strong>Pilote propriétaire recommandé disponible.</strong> Lancez l'utilitaire de pilotes de votre OS.".to_string();
+    // Drivers Check — détection multi-distro via lspci + modinfo
+    {
+        // Détecter si une carte NVIDIA/AMD est présente
+        let lspci_out = std::process::Command::new("lspci").output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase())
+            .unwrap_or_default();
+
+        let has_nvidia = lspci_out.contains("nvidia");
+        let has_amd_gpu = lspci_out.contains("amd") && (lspci_out.contains("vga") || lspci_out.contains("display"));
+
+        // Vérifier si le module propriétaire est chargé
+        let loaded_modules = std::process::Command::new("lsmod").output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase())
+            .unwrap_or_default();
+
+        let nvidia_loaded = loaded_modules.contains("nvidia");
+        let amdgpu_loaded = loaded_modules.contains("amdgpu");
+
+        // ubuntu-drivers en fallback si disponible
+        let ubuntu_check = std::process::Command::new("ubuntu-drivers")
+            .arg("devices").output().ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).contains("recommended"));
+
+        drivers_advice = if let Some(true) = ubuntu_check {
+            "⚠️ <strong>Pilote propriétaire recommandé.</strong> Ouvrez le Gestionnaire de pilotes de votre OS.".to_string()
+        } else if has_nvidia && !nvidia_loaded {
+            "⚠️ <strong>Carte NVIDIA détectée mais pilote propriétaire (nvidia) non chargé.</strong> Installez-le via votre gestionnaire de paquets.".to_string()
+        } else if has_amd_gpu && !amdgpu_loaded {
+            "⚠️ <strong>Carte AMD détectée mais module amdgpu non chargé.</strong> Vérifiez votre installation.".to_string()
+        } else if has_nvidia && nvidia_loaded {
+            "✅ <strong>Pilote NVIDIA propriétaire actif.</strong> Votre carte graphique est correctement configurée.".to_string()
+        } else if has_amd_gpu && amdgpu_loaded {
+            "✅ <strong>Pilote AMD (amdgpu) actif.</strong> Votre carte graphique est correctement configurée.".to_string()
         } else {
-            drivers_advice = "✅ <strong>Aucun pilote propriétaire manquant détecté.</strong>".to_string();
-        }
-    } else {
-        drivers_advice = "✅ <strong>Système de base.</strong> (L'outil de vérification des pilotes n'est pas supporté sur cette distribution, tout semble normal).".to_string();
+            "✅ <strong>Pilotes système à jour.</strong> Aucun pilote propriétaire manquant détecté.".to_string()
+        };
     }
     
     Ok(CompanionAdvice {

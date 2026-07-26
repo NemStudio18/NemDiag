@@ -446,7 +446,7 @@
             const tbody = document.getElementById('leaderboard-body');
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Chargement...</td></tr>';
             try {
-                const response = await fetch("https://nemdiag.nhtml.ynh.fr/api/telemetry");
+                const response = await fetch("https://diag-nem.flexcb.fr/api/telemetry.php");
                 if (!response.ok) throw new Error("Erreur réseau");
                 const raw = await response.json();
 
@@ -703,25 +703,73 @@
                     let title = type==='CPU'?'STRESS TEST CPU':(type==='RAM'?'STRESS TEST RAM':'STRESS TEST DISQUE');
                     let unit = type==='CPU'?'GFlops':(type==='RAM'?'Mo/s':'Mo/s');
                     let msgArray = type==='CPU'?loaderCPU:(type==='RAM'?loaderRAM:loaderDISK);
-                    
-                    uiText.innerHTML = `[${title} EN COURS]<br><br><span id="loader-msg" style="color:var(--text-muted);font-style:italic;">${msgArray[0]}</span><br><br>Traitement en temps réel :<br><span id="generic-ops" style="font-size:3rem;">0</span> ${unit}`;
-                    
+                    let accentColor = type==='CPU'?'#00bfff':(type==='RAM'?'#7c3aed':'#f59e0b');
+
+                    uiText.innerHTML = `
+                        <div style="text-align:center; padding: 2rem 1rem;">
+                            <div style="font-size:0.85rem; letter-spacing:0.15em; color:#8892b0; margin-bottom:1.5rem;">[${title} EN COURS]</div>
+
+                            <!-- Ring loader animé -->
+                            <div style="position:relative; width:140px; height:140px; margin:0 auto 1.5rem;">
+                                <svg viewBox="0 0 140 140" style="width:140px;height:140px;transform:rotate(-90deg);">
+                                    <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
+                                    <circle id="loader-ring" cx="70" cy="70" r="60" fill="none" stroke="${accentColor}" stroke-width="8"
+                                        stroke-dasharray="377" stroke-dashoffset="377"
+                                        style="transition: stroke-dashoffset 0.5s ease; filter: drop-shadow(0 0 6px ${accentColor});"/>
+                                </svg>
+                                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                                    <div id="generic-ops" style="font-size:2rem;font-weight:800;color:${accentColor};font-family:monospace;">0</div>
+                                    <div style="font-size:0.7rem;color:#8892b0;margin-top:2px;">${unit}</div>
+                                </div>
+                            </div>
+
+                            <!-- Message rotatif -->
+                            <div id="loader-msg" style="color:var(--text-muted);font-style:italic;font-size:0.9rem;min-height:1.4em;margin-bottom:1rem;">${msgArray[0]}</div>
+
+                            <!-- Barres de particules animées -->
+                            <div style="display:flex;gap:3px;justify-content:center;align-items:flex-end;height:40px;">
+                                ${Array.from({length:20},(_,i)=>`<div class="loader-bar-particle" style="width:6px;background:${accentColor};border-radius:3px;opacity:0.7;animation:particleBounce 1.2s ease-in-out ${(i*0.06).toFixed(2)}s infinite alternate;"></div>`).join('')}
+                            </div>
+                        </div>`;
+
+                    // Injection CSS animation si pas déjà présent
+                    if (!document.getElementById('loader-anim-style')) {
+                        const s = document.createElement('style');
+                        s.id = 'loader-anim-style';
+                        s.textContent = `
+                            @keyframes particleBounce {
+                                from { height: 4px; }
+                                to   { height: 36px; }
+                            }`;
+                        document.head.appendChild(s);
+                    }
+
                     visualizerInterval = setInterval(async () => {
                         tickCount++;
-                        if (tickCount % 6 === 0) { // Change message every ~3 seconds (6 * 500ms)
+                        if (tickCount % 6 === 0) {
                             let loaderMsg = document.getElementById('loader-msg');
-                            if (loaderMsg) loaderMsg.innerText = msgArray[(tickCount / 6) % msgArray.length];
+                            if (loaderMsg) loaderMsg.innerText = msgArray[Math.floor(tickCount / 6) % msgArray.length];
                         }
 
+                        let val = 0;
                         if (type === 'RAM') {
-                            let val = await invoke('get_live_ram_throughput');
-                            let el=document.getElementById('generic-ops'); if(el) el.innerText=val;
+                            val = await invoke('get_live_ram_throughput');
                         } else if (type === 'DISK') {
-                            let val = await invoke('get_live_disk_throughput');
-                            let el=document.getElementById('generic-ops'); if(el) el.innerText=val;
+                            val = await invoke('get_live_disk_throughput');
                         } else {
-                            opCount+=Math.random()*50+10; 
-                            let el=document.getElementById('generic-ops'); if(el) el.innerText=Math.floor(opCount);
+                            opCount += Math.random()*50+10;
+                            val = Math.floor(opCount);
+                        }
+
+                        let el = document.getElementById('generic-ops');
+                        if (el) el.innerText = val;
+
+                        // Rotation ring basée sur la valeur (max arbitraire)
+                        let ring = document.getElementById('loader-ring');
+                        if (ring && val > 0) {
+                            let maxVal = type==='RAM' ? 60000 : type==='DISK' ? 10000 : 1000;
+                            let pct = Math.min(1, val / maxVal);
+                            ring.setAttribute('stroke-dashoffset', (377 * (1 - pct)).toFixed(1));
                         }
                     }, 500);
                 }
