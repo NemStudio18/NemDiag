@@ -186,17 +186,47 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_else(|_| "lscpu non disponible".to_string());
 
-    // RAM — /proc/meminfo + dmidecode (pour Dual Channel)
+    // Root Info Gather (DMIDecode + SMART) in a single pkexec call to prevent double password prompt
     let mut ram_details = String::new();
-    let dmi_ram = Command::new("pkexec")
-        .args(["dmidecode", "-t", "memory"])
-        .output();
-    if let Ok(out) = dmi_ram {
+    let mut disks_details = Command::new("lsblk")
+        .args(["-o", "NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_else(|_| "lsblk non disponible".to_string());
+
+    let root_script = r#"
+        echo "=== DMI ==="
+        dmidecode -t memory 2>/dev/null
+        echo "=== SMART ==="
+        for dev in $(lsblk -d -n -o NAME | grep -v loop); do
+            echo "/dev/$dev:"
+            smartctl -H /dev/$dev 2>/dev/null | grep -E -i "(test result|health)"
+            echo ""
+        done
+    "#;
+
+    if let Ok(out) = Command::new("pkexec").args(["bash", "-c", root_script]).output() {
         let stdout = String::from_utf8_lossy(&out.stdout);
+        let mut in_dmi = false;
+        let mut in_smart = false;
+        let mut dmi_str = String::new();
+        let mut smart_str = String::new();
+        
+        for line in stdout.lines() {
+            if line == "=== DMI ===" {
+                in_dmi = true; in_smart = false; continue;
+            } else if line == "=== SMART ===" {
+                in_smart = true; in_dmi = false; continue;
+            }
+            if in_dmi { dmi_str.push_str(line); dmi_str.push('\n'); }
+            if in_smart { smart_str.push_str(line); smart_str.push('\n'); }
+        }
+
+        // Process DMI
         let mut installed_sticks = 0;
         let mut speeds = Vec::new();
         let mut types = Vec::new();
-        for line in stdout.lines() {
+        for line in dmi_str.lines() {
             if line.contains("Size:") && !line.contains("No Module Installed") {
                 installed_sticks += 1;
             }
@@ -217,31 +247,19 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
                 speeds
             ));
         }
-    }
-    ram_details.push_str(&fs::read_to_string("/proc/meminfo").unwrap_or_else(|_| "Non disponible".to_string()));
 
-    // Disques — lsblk + SMART
-    let mut disks_details = Command::new("lsblk")
-        .args(["-o", "NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA"])
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .unwrap_or_else(|_| "lsblk non disponible".to_string());
-
-    disks_details.push_str("\n--- Santé S.M.A.R.T ---\n");
-    let smart_cmd = Command::new("pkexec")
-        .args(["bash", "-c", "for dev in $(lsblk -d -n -o NAME | grep -v loop); do echo \"/dev/$dev:\"; smartctl -H /dev/$dev | grep -E -i '(test result|health)'; echo \"\"; done"])
-        .output();
-    
-    if let Ok(out) = smart_cmd {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        if stdout.trim().is_empty() {
+        // Process SMART
+        disks_details.push_str("\n--- Santé S.M.A.R.T ---\n");
+        if smart_str.trim().is_empty() {
             disks_details.push_str("Aucune donnée SMART ou smartmontools non installé.\n");
         } else {
-            disks_details.push_str(&stdout);
+            disks_details.push_str(&smart_str);
         }
     } else {
-        disks_details.push_str("Impossible d'exécuter smartctl.\n");
+        disks_details.push_str("\n--- Santé S.M.A.R.T ---\nImpossible d'exécuter pkexec.\n");
     }
+    
+    ram_details.push_str(&fs::read_to_string("/proc/meminfo").unwrap_or_else(|_| "Non disponible".to_string()));
 
     // USB — lsusb + lsusb -t
     let mut usb_details = Command::new("lsusb")
