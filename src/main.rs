@@ -479,6 +479,43 @@ fn main() {
         } else {
             println!("Impossible de récupérer les détails matériels.");
         }
+
+        if args.contains(&"--stress".to_string()) || args.contains(&"-s".to_string()) {
+            println!("\n=== DÉBUT DES STRESS TESTS (CLI) ===");
+            
+            println!("[1/4] Test CPU en cours (10s)...");
+            let mut cpu = CpuStress::new();
+            cpu.start();
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            cpu.stop();
+            println!("✅ Score CPU : {}", cpu.get_score());
+
+            println!("\n[2/4] Test GPU en cours (10s)...");
+            let mut gpu = GpuStress::new();
+            gpu.start();
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            gpu.stop();
+            println!("✅ Score GPU (passes) : {}", gpu.get_total_passes() * 50);
+
+            println!("\n[3/4] Test RAM en cours (10s)...");
+            let mut ram = RamStress::new();
+            ram.start();
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            ram.stop();
+            println!("✅ Bande passante RAM : {} Mo/s", ram.get_throughput());
+
+            println!("\n[4/4] Test Disque en cours (10s)...");
+            let mut disk = DiskStress::new();
+            disk.start();
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            disk.stop();
+            println!("✅ Vitesse Disque : {} Mo/s", disk.get_throughput());
+            
+            println!("\n=== TESTS TERMINÉS ===");
+        } else {
+            println!("\nAstuce : Ajoutez l'argument --stress (ou -s) pour lancer les tests de performance matérielle.");
+        }
+        
         return;
     }
 
