@@ -353,3 +353,17 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
         wifi_details,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gather_detailed_info_linux() {
+        if let Ok(info) = gather_detailed_info_linux() {
+            println!("=== RAM DETAILS ===\n{}", info.ram_details);
+            println!("=== DISKS DETAILS ===\n{}", info.disks_details);
+            println!("=== USB DETAILS ===\n{}", info.usb_details);
+        }
+    }
+}
