@@ -40,8 +40,96 @@ struct SysInfo {
 }
 
 #[tauri::command]
-fn set_telemetry_consent(consent: bool) {
-    TELEMETRY_CONSENT.store(consent, Ordering::Relaxed);
+async fn set_telemetry_consent(consent: bool) {
+    if !consent {
+        let _ = std::fs::remove_file("/tmp/nemdiag_telemetry_consent");
+    } else {
+        let _ = std::fs::write("/tmp/nemdiag_telemetry_consent", "1");
+    }
+}
+
+#[tauri::command]
+async fn export_report(format: String, report_json: String) -> Result<String, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let mut desktop = std::path::PathBuf::from(&home).join("Bureau");
+    if !desktop.exists() {
+        desktop = std::path::PathBuf::from(&home).join("Desktop");
+    }
+    if !desktop.exists() {
+        desktop = std::path::PathBuf::from(&home);
+    }
+    
+    let filename = if format == "html" {
+        "NemDiag_Report.html"
+    } else {
+        "NemDiag_Report.json"
+    };
+    
+    let filepath = desktop.join(filename);
+    
+    let content = if format == "html" {
+        let parsed: serde_json::Value = serde_json::from_str(&report_json).map_err(|e| e.to_string())?;
+        format!("
+            <html>
+                <head>
+                    <meta charset='UTF-8'>
+                    <title>Rapport NemDiag</title>
+                    <style>
+                        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #020617; color: #f8fafc; padding: 40px; }}
+                        h1 {{ color: #00e676; }}
+                        .score {{ font-size: 24px; font-weight: bold; color: #38bdf8; }}
+                        .card {{ background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.15); margin-bottom: 20px; }}
+                        .advice {{ color: #94a3b8; font-style: italic; margin-top: 10px; }}
+                    </style>
+                </head>
+                <body>
+                    <h1>Rapport de Diagnostic NemDiag</h1>
+                    <div class='card'>
+                        <h2>Système : {}</h2>
+                        <p>CPU: {} ({} cœurs)</p>
+                        <p>RAM: {} Mo</p>
+                    </div>
+                    <div class='card'>
+                        <h2>Score CPU : <span class='score'>{}</span></h2>
+                        <p class='advice'>{}</p>
+                    </div>
+                    <div class='card'>
+                        <h2>Score GPU : <span class='score'>{}</span></h2>
+                        <p class='advice'>{}</p>
+                    </div>
+                    <div class='card'>
+                        <h2>Score RAM : <span class='score'>{} Mo/s</span></h2>
+                        <p class='advice'>{}</p>
+                    </div>
+                    <div class='card'>
+                        <h2>Score Disque : <span class='score'>{} Mo/s</span></h2>
+                        <p class='advice'>{}</p>
+                    </div>
+                    <p style='text-align: center; color: #555; font-size: 0.8rem; margin-top: 40px;'>Généré par NemDiag Linux</p>
+                </body>
+            </html>
+        ", 
+        parsed["os_name"].as_str().unwrap_or("Inconnu"),
+        parsed["cpu_name"].as_str().unwrap_or("Inconnu"),
+        parsed["core_count"].as_i64().unwrap_or(0),
+        parsed["memory_total_mb"].as_i64().unwrap_or(0),
+        parsed["cpu_score"].as_i64().unwrap_or(0),
+        parsed["cpu_advice"].as_str().unwrap_or(""),
+        parsed["gpu_score"].as_i64().unwrap_or(0),
+        parsed["gpu_advice"].as_str().unwrap_or(""),
+        parsed["ram_score"].as_i64().unwrap_or(0),
+        parsed["ram_advice"].as_str().unwrap_or(""),
+        parsed["disk_score"].as_i64().unwrap_or(0),
+        parsed["disk_advice"].as_str().unwrap_or("")
+        )
+    } else {
+        let parsed: serde_json::Value = serde_json::from_str(&report_json).map_err(|e| e.to_string())?;
+        serde_json::to_string_pretty(&parsed).unwrap_or(report_json)
+    };
+
+    std::fs::write(&filepath, content).map_err(|e| format!("Erreur d'écriture: {}", e))?;
+    
+    Ok(filepath.to_string_lossy().to_string())
 }
 
 /// T3: Cancels the currently running stress test sequence.
@@ -396,6 +484,7 @@ fn main() {
             run_smart_and_export,
             get_companion_advice,
             set_telemetry_consent,
+            export_report,
             cancel_test
         ])
         .run(tauri::generate_context!())

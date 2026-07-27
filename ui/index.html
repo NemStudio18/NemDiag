@@ -379,8 +379,10 @@
                     </div>
                 </div>
                 
-                <div style="text-align: center; margin-top: 2rem;">
-                    <button class="btn-action" onclick="window.close()">Fermer l'application</button>
+                <div style="text-align: center; margin-top: 2rem; display: flex; justify-content: center; gap: 1rem;">
+                    <button class="btn-action" onclick="exportReport('json')"><i class="fa-solid fa-file-code"></i> Export JSON</button>
+                    <button class="btn-action" onclick="exportReport('html')"><i class="fa-solid fa-file-pdf"></i> Export HTML / Imprimer</button>
+                    <button class="btn-action btn-secondary" onclick="window.close()" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted);">Fermer</button>
                 </div>
             </section>
 
@@ -1002,6 +1004,20 @@
             document.getElementById('test-selection').style.display = 'flex';
             document.getElementById('progress-container').style.display = 'none';
             clearInterval(progressInterval);
+        }
+
+        async function exportReport(format) {
+            if (!lastReport) {
+                alert("Aucun rapport à exporter. Veuillez lancer un test d'abord.");
+                return;
+            }
+            try {
+                // Generate a cool export file
+                const result = await invoke('export_report', { format: format, reportJson: JSON.stringify(lastReport) });
+                alert("Rapport exporté avec succès !\nFichier enregistré sous :\n" + result);
+            } catch (e) {
+                alert("Erreur lors de l'exportation :\n" + e);
+            }
         }
 
         window.addEventListener('DOMContentLoaded', loadInfo);
