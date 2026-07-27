@@ -138,6 +138,8 @@ pub struct DetailedSystemInfo {
     pub gpu_details: String,
     pub battery_details: String,
     pub display_details: String,
+    pub network_details: String,
+    pub wifi_details: String,
 }
 
 pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
@@ -248,6 +250,43 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
             .join("\n"))
         .unwrap_or_else(|_| "xrandr non disponible".to_string());
 
+    let mut network_details = String::new();
+    if let Ok(out) = Command::new("ip").args(["-br", "addr"]).output() {
+        network_details = String::from_utf8_lossy(&out.stdout).to_string();
+    }
+
+    let mut wifi_details = String::new();
+    if let Ok(out) = Command::new("nmcli").args(["-t", "-f", "active,ssid,signal", "dev", "wifi"]).output() {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        for line in stdout.lines() {
+            if line.starts_with("oui:") || line.starts_with("yes:") {
+                let parts: Vec<&str> = line.split(':').collect();
+                if parts.len() >= 3 {
+                    wifi_details = format!("SSID: {}, Signal: {}%", parts[1], parts[2]);
+                }
+                break;
+            }
+        }
+    }
+    if wifi_details.is_empty() {
+        if let Ok(wireless_raw) = fs::read_to_string("/proc/net/wireless") {
+            let lines: Vec<&str> = wireless_raw.lines().collect();
+            if lines.len() > 2 {
+                let parts: Vec<&str> = lines[2].split_whitespace().collect();
+                if parts.len() > 3 {
+                    let mut signal_dbm = parts[3].trim_end_matches('.').to_string();
+                    if !signal_dbm.starts_with('-') {
+                        signal_dbm = format!("-{}", signal_dbm); // Sometimes missing negative sign
+                    }
+                    wifi_details = format!("Connecté, Signal: {} dBm", signal_dbm);
+                }
+            }
+        }
+    }
+    if wifi_details.is_empty() {
+        wifi_details = "Non connecté au Wi-Fi / Non détecté".to_string();
+    }
+
     Ok(DetailedSystemInfo {
         system_details,
         bios_details,
@@ -259,5 +298,7 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
         gpu_details,
         battery_details,
         display_details,
+        network_details,
+        wifi_details,
     })
 }

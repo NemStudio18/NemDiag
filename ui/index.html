@@ -151,6 +151,11 @@
 
                 <div id="dash-periph" class="dash-content">
                     <div class="detail-card">
+                        <h3><i class="fa-solid fa-network-wired"></i> Réseau & Wi-Fi</h3>
+                        <div id="detail-network-text" style="font-family: monospace; white-space: pre-wrap; font-size: 0.9em;">Chargement...</div>
+                        <div id="detail-wifi-text" style="font-family: monospace; white-space: pre-wrap; font-size: 0.9em; color: #00e676; margin-top: 5px;"></div>
+                    </div>
+                    <div class="detail-card" style="margin-top: 1rem;">
                         <h3><i class="fa-solid fa-desktop"></i> Écrans et Résolutions</h3>
                         <div id="detail-display-text">Chargement...</div>
                     </div>
@@ -633,6 +638,8 @@
                 document.getElementById('detail-bios-text').innerHTML = formatDetailCards(detailedInfo.bios_details);
                 document.getElementById('detail-mb-text').innerHTML = formatDetailCards(detailedInfo.motherboard);
                 document.getElementById('detail-cpu-text').innerHTML = formatDetailCards(detailedInfo.cpu_details);
+                document.getElementById('detail-network-text').textContent = detailedInfo.network_details;
+                document.getElementById('detail-wifi-text').innerHTML = `<i class="fa-solid fa-wifi"></i> ` + detailedInfo.wifi_details;
                 document.getElementById('detail-ram-text').innerHTML = formatDetailCards(detailedInfo.ram_details);
                 document.getElementById('detail-gpu-text').innerHTML = formatDetailCards(detailedInfo.gpu_details || "Non détecté");
                 document.getElementById('detail-battery-text').innerHTML = formatDetailCards(detailedInfo.battery_details || "Pas de batterie détectée");

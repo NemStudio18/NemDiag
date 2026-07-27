@@ -120,7 +120,7 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
     if c_score > 0 {
         if c_score < 4000 {
             resources_advice.push_str(&format!("⚠️ <strong>Processeur lent (Score: {})</strong> : Score faible, ce processeur risque de peiner sur du multitâche lourd.<br>", c_score));
-        } else if c_score < 10000 {
+        } else if c_score < 15000 {
             resources_advice.push_str(&format!("✅ <strong>Processeur moyen (Score: {})</strong> : Bonne capacité pour le jeu et le quotidien.<br>", c_score));
         } else {
             resources_advice.push_str(&format!("🚀 <strong>Processeur performant (Score: {})</strong> : Puissance de calcul massive pour la productivité.<br>", c_score));
@@ -146,6 +146,20 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
     } else {
         thermal_advice = format!("✅ <strong>Températures excellentes ({}°C max)</strong> : Votre système est bien refroidi au repos.", max_temp);
     }
+    
+    // GPU Advice
+    let gpu_advice;
+    let g_score = LAST_GPU_SCORE.load(Ordering::Relaxed);
+    if g_score == 0 {
+        gpu_advice = "⚠️ <strong>Carte Graphique</strong> : Test non effectué ou impossible. Pilotes Vulkan absents ou matériel trop ancien.".to_string();
+    } else if g_score < 5000 {
+        gpu_advice = format!("⚠️ <strong>GPU faible (Score: {})</strong> : Puce graphique basique. Inadapté pour le jeu 3D complexe.", g_score);
+    } else if g_score < 40000 {
+        gpu_advice = format!("✅ <strong>GPU convenable (Score: {})</strong> : Adapté pour du jeu en 1080p ou usage multimédia.", g_score);
+    } else {
+        gpu_advice = format!("🚀 <strong>GPU performant (Score: {})</strong> : Excellente carte graphique pour la 3D et l'IA.<br>", g_score);
+    }
+    resources_advice.push_str(&gpu_advice);
     
     // Drivers Check — détection multi-distro via lspci + modinfo
     {

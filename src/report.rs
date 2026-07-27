@@ -80,11 +80,11 @@ pub fn generate_report(
     }).collect();
 
     let mut cpu_advice = if cpu_score < 4000 {
-        format!("Score : {}. Score plutôt faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement.", cpu_score)
-    } else if cpu_score < 10000 {
-        format!("Score : {}. Score moyen (bureautique avancée). Pour vous donner un ordre d'idée, un CPU de bureau classique récent tourne autour de 6000-8000. Il risque de peiner sur du traitement très lourd.", cpu_score)
+        format!("Score : {}. Score faible. Le processeur est probablement très ancien ou souffre de thermal throttling sévère. Envisagez de nettoyer le système de refroidissement.", cpu_score)
+    } else if cpu_score < 15000 {
+        format!("Score : {}. Score moyen (bureautique avancée). Il risque de peiner sur du traitement très lourd.", cpu_score)
     } else {
-        format!("Score : {}. Excellent score ! Votre processeur est surpuissant et très performant pour le multitâche lourd, le jeu ou le rendu 3D. (Moyenne haute : ~10000).", cpu_score)
+        format!("Score : {}. Excellent score ! Votre processeur est surpuissant et très performant pour le multitâche lourd, le jeu ou le rendu 3D. (Moyenne haute : >15000).", cpu_score)
     };
 
     let max_temp = monitor.get_temperatures().into_iter().map(|(_, t)| t).fold(0.0, f32::max);
@@ -94,10 +94,10 @@ pub fn generate_report(
 
     let gpu_advice = if gpu_score == 0 {
         "Aucun GPU matériel performant détecté, ou test impossible (ex: serveur sans interface graphique, machine virtuelle).".to_string()
-    } else if gpu_score < 300 {
+    } else if gpu_score < 5000 {
         "Score faible. Puce graphique intégrée ou ancienne. Suffisant pour l'affichage classique, mais inadapté pour le jeu 3D ou le montage vidéo.".to_string()
-    } else if gpu_score < 1500 {
-        "Score convenable. GPU dédié de milieu de gamme. Permet de jouer dans des conditions acceptables à la plupart des jeux.".to_string()
+    } else if gpu_score < 40000 {
+        "Score convenable. GPU dédié de milieu de gamme ou iGPU performant. Permet de jouer dans des conditions acceptables.".to_string()
     } else {
         "Très haut score ! Carte graphique très performante, taillée pour la haute résolution ou les traitements lourds (IA, 3D).".to_string()
     };
