@@ -21,6 +21,17 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
+    - name: Install appimagetool
+      run: |
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+        chmod +x /usr/local/bin/appimagetool
+        # Fix for AppImage in Docker/Actions (requires FUSE, but we can extract it instead)
+        # Actually appimagetool can run without fuse using --appimage-extract-and-run
+        # We will create a wrapper script
+        echo -e '#!/bin/bash\n/usr/local/bin/appimagetool --appimage-extract-and-run "$@"' > /usr/local/bin/appimagetool-wrapper
+        chmod +x /usr/local/bin/appimagetool-wrapper
+        ln -sf /usr/local/bin/appimagetool-wrapper /usr/local/bin/appimagetool
+
     - name: Install cargo-deb and cargo-appimage
       run: cargo install cargo-deb cargo-appimage
 
@@ -32,10 +43,8 @@ jobs:
 
     - name: Build .AppImage package
       run: |
-        mkdir -p AppDir/usr/bin
-        cp target/release/nemdiag-rs AppDir/usr/bin/
-        cp nemdiag.desktop AppDir/
-        cp icons/icon.png AppDir/nemdiag.png
+        # cargo-appimage expects icon.png in the root directory
+        cp icons/icon.png ./icon.png
         cargo appimage
 
     - name: Upload .deb Artifact
