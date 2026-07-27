@@ -1,7 +1,0 @@
-Package: nemdiag
-Version: 0.2-beta
-Section: utils
-Priority: optional
-Architecture: amd64
-Maintainer: NemDiag Team
-Description: Outil de diagnostic matériel intelligent pour Linux (0.2-beta).
