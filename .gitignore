@@ -1,2 +1,9 @@
 /target
 website/
+node_modules/
+web/
+ui/index.html.orig
+screenshot_debug.js
+package.json
+package-lock.json
+
