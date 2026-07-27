@@ -455,6 +455,33 @@ async fn run_smart_and_export(user_id: String, state: tauri::State<'_, std::sync
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.contains(&"--cli".to_string()) || args.contains(&"-c".to_string()) {
+        println!("=== NemDiag CLI Mode ===");
+        let monitor = HardwareMonitor::new();
+        let info = monitor.get_static_info();
+        println!("OS: {}", info.os_name);
+        println!("Kernel: {}", info.kernel_version);
+        println!("CPU: {} ({} coeurs)", info.cpu_name, info.core_count);
+        println!("RAM Totale: {} Mo", info.memory_total / 1024 / 1024);
+        
+        println!("\nRécupération des informations détaillées (peut demander le mot de passe root)...");
+        if let Ok(detailed) = hardware::gather_detailed_info_linux() {
+            println!("\n--- CARTE MÈRE ---");
+            println!("{}", detailed.motherboard);
+            println!("\n--- MÉMOIRE ---");
+            println!("{}", detailed.ram_details);
+            println!("\n--- STOCKAGE ---");
+            println!("{}", detailed.disks_details);
+            println!("\n--- RÉSEAU ---");
+            println!("{}", detailed.network_details);
+            println!("{}", detailed.wifi_details);
+        } else {
+            println!("Impossible de récupérer les détails matériels.");
+        }
+        return;
+    }
+
     std::panic::set_hook(Box::new(|info| {
         if !TELEMETRY_CONSENT.load(Ordering::Relaxed) {
             return;
