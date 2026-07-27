@@ -186,22 +186,73 @@ pub fn gather_detailed_info_linux() -> Result<DetailedSystemInfo, String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_else(|_| "lscpu non disponible".to_string());
 
-    // RAM — /proc/meminfo
-    let ram_details = fs::read_to_string("/proc/meminfo")
-        .unwrap_or_else(|_| "Non disponible".to_string());
+    // RAM — /proc/meminfo + dmidecode (pour Dual Channel)
+    let mut ram_details = String::new();
+    let dmi_ram = Command::new("pkexec")
+        .args(["dmidecode", "-t", "memory"])
+        .output();
+    if let Ok(out) = dmi_ram {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let mut installed_sticks = 0;
+        let mut speeds = Vec::new();
+        let mut types = Vec::new();
+        for line in stdout.lines() {
+            if line.contains("Size:") && !line.contains("No Module Installed") {
+                installed_sticks += 1;
+            }
+            if line.contains("Speed:") && !line.contains("Unknown") {
+                speeds.push(line.trim().replace("Speed: ", ""));
+            }
+            if line.contains("Type:") && !line.contains("Unknown") && !line.contains("Error") {
+                let t = line.trim().replace("Type: ", "");
+                if !types.contains(&t) { types.push(t); }
+            }
+        }
+        if installed_sticks > 0 {
+            ram_details.push_str(&format!(
+                "--- Mémoire Physique ---\nBarrettes : {}\nMode probable : {}\nType : {}\nFréquences : {:?}\n\n",
+                installed_sticks,
+                if installed_sticks == 1 { "Single-Channel" } else if installed_sticks == 2 { "Dual-Channel" } else { "Quad-Channel" },
+                types.join(", "),
+                speeds
+            ));
+        }
+    }
+    ram_details.push_str(&fs::read_to_string("/proc/meminfo").unwrap_or_else(|_| "Non disponible".to_string()));
 
-    // Disques — lsblk
-    let disks_details = Command::new("lsblk")
+    // Disques — lsblk + SMART
+    let mut disks_details = Command::new("lsblk")
         .args(["-o", "NAME,SIZE,FSTYPE,TYPE,MOUNTPOINT,MODEL,ROTA"])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_else(|_| "lsblk non disponible".to_string());
 
-    // USB — lsusb
-    let usb_details = Command::new("lsusb")
+    disks_details.push_str("\n--- Santé S.M.A.R.T ---\n");
+    let smart_cmd = Command::new("pkexec")
+        .args(["bash", "-c", "for dev in $(lsblk -d -n -o NAME | grep -v loop); do echo \"/dev/$dev:\"; smartctl -H /dev/$dev | grep -E -i '(test result|health)'; echo \"\"; done"])
+        .output();
+    
+    if let Ok(out) = smart_cmd {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        if stdout.trim().is_empty() {
+            disks_details.push_str("Aucune donnée SMART ou smartmontools non installé.\n");
+        } else {
+            disks_details.push_str(&stdout);
+        }
+    } else {
+        disks_details.push_str("Impossible d'exécuter smartctl.\n");
+    }
+
+    // USB — lsusb + lsusb -t
+    let mut usb_details = Command::new("lsusb")
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_else(|_| "lsusb non disponible".to_string());
+    
+    if let Ok(out) = Command::new("lsusb").arg("-t").output() {
+        usb_details.push_str("\n--- Topologie et Vitesses USB ---\n");
+        usb_details.push_str(&String::from_utf8_lossy(&out.stdout));
+    }
 
     // GPU — lspci
     let gpu_details = Command::new("lspci")

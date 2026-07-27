@@ -68,7 +68,7 @@ pub fn generate_report(
     gpu_score: u32,
     ram_score: u32,
     disk_score: u32,
-    user_id: String,
+    _user_id: String,
 ) -> Result<String, String> {
     let info = monitor.get_static_info();
     
@@ -91,6 +91,9 @@ pub fn generate_report(
     if max_temp > 85.0 {
         cpu_advice.push_str(" AVERTISSEMENT : Surchauffe détectée (> 85°C). Pensez à dépoussiérer les ventilateurs ou changer la pâte thermique.");
     }
+    if crate::THROTTLING_DETECTED.load(std::sync::atomic::Ordering::Relaxed) {
+        cpu_advice.push_str(" 🚨 THROTTLING THERMIQUE DÉTECTÉ : Votre processeur ralentit volontairement pour ne pas fondre. Pâte thermique sèche ou refroidissement défectueux !");
+    }
 
     let gpu_advice = if gpu_score == 0 {
         "Aucun GPU matériel performant détecté, ou test impossible (ex: serveur sans interface graphique, machine virtuelle).".to_string()
@@ -112,6 +115,11 @@ pub fn generate_report(
 
     if info.memory_total > 0 && (info.memory_used as f64 / info.memory_total as f64) > 0.85 {
         ram_advice.push_str(" AVERTISSEMENT : Plus de 85% de la RAM est actuellement utilisée ! Votre système risque de ralentir (swap). Envisagez d'ajouter de la mémoire.");
+    }
+
+    let ram_errors = crate::stress_ram::RAM_ERRORS.load(std::sync::atomic::Ordering::Relaxed);
+    if ram_errors > 0 {
+        ram_advice.push_str(&format!(" 🚨 ERREUR MATÉRIELLE CRITIQUE : {} erreurs de parité (Bit-flips) détectées ! Une de vos barrettes RAM est physiquement défectueuse et risque de corrompre vos données système.", ram_errors));
     }
 
     let disk_advice = if disk_score < 150 {
@@ -187,6 +195,8 @@ pub fn generate_report(
             "disks": disks_json
         });
         
+        let machine_id = crate::telemetry::get_machine_id(&data.cpu_name);
+        
         let payload = TelemetryPayload {
             os_name: data.os_name.clone(),
             cpu_name: data.cpu_name.clone(),
@@ -196,7 +206,7 @@ pub fn generate_report(
             gpu_score: data.gpu_score,
             ram_score: data.ram_score,
             disk_score: data.disk_score,
-            user_id: user_id,
+            user_id: machine_id,
             system_details: Some(safe_details.to_string()),
         };
         if let Ok(telemetry_json) = serde_json::to_string(&payload) {

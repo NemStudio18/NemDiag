@@ -2,6 +2,8 @@ use std::sync::{Arc, atomic::{AtomicBool, Ordering, AtomicU32}};
 use std::thread;
 use std::time::Instant;
 
+pub static RAM_ERRORS: AtomicU32 = AtomicU32::new(0);
+
 pub struct RamStress {
     is_running: Arc<AtomicBool>,
     throughput_mb_s: Arc<AtomicU32>,
@@ -21,6 +23,8 @@ impl RamStress {
         if self.is_running.load(Ordering::SeqCst) {
             return;
         }
+        
+        RAM_ERRORS.store(0, Ordering::Relaxed);
 
         // Buffer de 256 Mo — assez grand pour mesurer, assez petit pour que
         // chaque chunk de 32 Mo soit traité en bien moins d'une seconde.
@@ -68,6 +72,7 @@ impl RamStress {
                     for val in chunk.iter() {
                         if *val != current_pattern {
                             println!("RAM Error! Expected {:#x}, got {:#x}", current_pattern, *val);
+                            RAM_ERRORS.fetch_add(1, Ordering::Relaxed);
                         }
                     }
                     bytes_processed += (chunk.len() * 8) as u64;

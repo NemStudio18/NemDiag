@@ -7,6 +7,7 @@ mod stress_gpu;
 mod stress_ram;
 mod stress_disk;
 mod report;
+mod telemetry;
 
 use hardware::{HardwareMonitor, RealtimeInfo};
 use stress_cpu::CpuStress;
@@ -23,6 +24,7 @@ pub static LAST_CPU_SCORE: AtomicU64 = AtomicU64::new(0);
 pub static LAST_GPU_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_RAM_SCORE: AtomicU32 = AtomicU32::new(0);
 pub static LAST_DISK_SCORE: AtomicU32 = AtomicU32::new(0);
+pub static THROTTLING_DETECTED: AtomicBool = AtomicBool::new(false);
 
 pub static LIVE_RAM_THROUGHPUT: AtomicU32 = AtomicU32::new(0);
 pub static LIVE_DISK_THROUGHPUT: AtomicU32 = AtomicU32::new(0);
@@ -225,14 +227,57 @@ async fn interruptible_sleep(duration_secs: u64) {
 }
 
 #[tauri::command]
-async fn run_cpu_test(duration: u64) {
+async fn run_cpu_test(duration: u64, state: tauri::State<'_, std::sync::Mutex<HardwareMonitor>>) -> Result<(), String> {
     // T3+T5: Reset cancel flag at the start of a new sequence (CPU is always first)
     CANCEL_REQUESTED.store(false, Ordering::Relaxed);
+    THROTTLING_DETECTED.store(false, Ordering::Relaxed);
+    
+    let mut sys = sysinfo::System::new();
+    sys.refresh_cpu_all();
+    let initial_freq = sys.cpus().first().map(|c| c.frequency()).unwrap_or(0);
+    
     let mut cpu = CpuStress::new();
     cpu.start();
-    interruptible_sleep(duration).await;
+    
+    let start = tokio::time::Instant::now();
+    let target = Duration::from_secs(duration);
+    
+    let mut min_freq_in_load = initial_freq;
+    let mut max_temp_in_load = 0.0;
+    
+    while start.elapsed() < target {
+        if CANCEL_REQUESTED.load(Ordering::Relaxed) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        
+        sys.refresh_cpu_all();
+        let current_freq = sys.cpus().first().map(|c| c.frequency()).unwrap_or(0);
+        if current_freq > 0 && current_freq < min_freq_in_load {
+            min_freq_in_load = current_freq;
+        }
+        
+        if let Ok(mut monitor) = state.try_lock() {
+            monitor.refresh();
+            let temps = monitor.get_temperatures();
+            let mt = temps.iter().map(|(_, t)| *t).fold(0.0, f32::max);
+            if mt > max_temp_in_load {
+                max_temp_in_load = mt;
+            }
+        }
+    }
+    
+    // Throttling Check : Si on perd > 15% de freq initiale alors qu'on est au dessus de 80°C
+    if initial_freq > 0 && max_temp_in_load > 80.0 {
+        let drop_ratio = (initial_freq as f64 - min_freq_in_load as f64) / initial_freq as f64;
+        if drop_ratio > 0.15 {
+            THROTTLING_DETECTED.store(true, Ordering::Relaxed);
+        }
+    }
+    
     cpu.stop();
     LAST_CPU_SCORE.store(cpu.get_score(), Ordering::Relaxed);
+    Ok(())
 }
 
 #[tauri::command]

@@ -23,14 +23,11 @@ jobs:
 
     - name: Install appimagetool
       run: |
-        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
-        chmod +x /usr/local/bin/appimagetool
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool-bin
+        chmod +x /usr/local/bin/appimagetool-bin
         # Fix for AppImage in Docker/Actions (requires FUSE, but we can extract it instead)
-        # Actually appimagetool can run without fuse using --appimage-extract-and-run
-        # We will create a wrapper script
-        echo -e '#!/bin/bash\n/usr/local/bin/appimagetool --appimage-extract-and-run "$@"' > /usr/local/bin/appimagetool-wrapper
-        chmod +x /usr/local/bin/appimagetool-wrapper
-        ln -sf /usr/local/bin/appimagetool-wrapper /usr/local/bin/appimagetool
+        echo -e '#!/bin/bash\n/usr/local/bin/appimagetool-bin --appimage-extract-and-run "$@"' > /usr/local/bin/appimagetool
+        chmod +x /usr/local/bin/appimagetool
 
     - name: Install cargo-deb and cargo-appimage
       run: cargo install cargo-deb cargo-appimage
