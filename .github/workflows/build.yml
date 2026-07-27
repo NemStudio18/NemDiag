@@ -21,8 +21,8 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Install cargo-deb
-      run: cargo install cargo-deb
+    - name: Install cargo-deb and cargo-appimage
+      run: cargo install cargo-deb cargo-appimage
 
     - name: Build project (Release)
       run: cargo build --release
@@ -30,14 +30,30 @@ jobs:
     - name: Build .deb package
       run: cargo deb
 
+    - name: Build .AppImage package
+      run: |
+        mkdir -p AppDir/usr/bin
+        cp target/release/nemdiag-rs AppDir/usr/bin/
+        cp nemdiag.desktop AppDir/
+        cp icons/icon.png AppDir/nemdiag.png
+        cargo appimage
+
     - name: Upload .deb Artifact
       uses: actions/upload-artifact@v4
       with:
         name: nemdiag-linux-deb
         path: target/debian/*.deb
 
-    - name: Upload .deb to Release
+    - name: Upload .AppImage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nemdiag-linux-appimage
+        path: "*.AppImage"
+
+    - name: Upload Binaries to Release
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: target/debian/*.deb
+        files: |
+          target/debian/*.deb
+          *.AppImage

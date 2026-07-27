@@ -12,7 +12,7 @@
   - **GPU** : Calculs par Shaders via Vulkan (`wgpu`) pour stresser la puce graphique dédiée ou intégrée (iGPU).
   - **RAM** : Stress d'allocation et de bande passante avec vérification de parité (Bit-flip).
   - **Disque** : Tests d'écriture/lecture séquentielle en RAM (Non-destructifs pour les SSD).
-- **🤖 Compagnon IA** : Analyse intelligente des résultats de vos tests pour vous donner des conseils personnalisés sur votre matériel (Goulots d'étranglement, chauffe, drivers manquants).
+- **🤖 Assistant d'Analyse (Compagnon)** : Algorithme intelligent qui analyse les résultats de vos tests pour vous donner des conseils personnalisés sur votre matériel (Goulots d'étranglement, chauffe, drivers manquants).
 - **🏆 Télémétrie & Podium** : Partagez vos résultats sur notre serveur de classement global ! (Optionnel)
 
 ## 📦 Installation
