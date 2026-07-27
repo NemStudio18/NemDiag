@@ -205,18 +205,23 @@ pub fn generate_report(
                 .build()
                 .unwrap_or_default();
             
-            if let Ok(resp) = client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
+            match client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
                 .header("Content-Type", "application/json")
                 .body(telemetry_json)
                 .send() {
-                if let Ok(resp_json) = resp.json::<serde_json::Value>() {
-                    if let Some(id_val) = resp_json.get("id") {
-                        if let Some(id_str) = id_val.as_str() {
-                            data.run_id = Some(id_str.to_string());
-                        } else if let Some(id_u64) = id_val.as_u64() {
-                            data.run_id = Some(id_u64.to_string());
+                Ok(resp) => {
+                    if let Ok(resp_json) = resp.json::<serde_json::Value>() {
+                        if let Some(id_val) = resp_json.get("id") {
+                            if let Some(id_str) = id_val.as_str() {
+                                data.run_id = Some(id_str.to_string());
+                            } else if let Some(id_u64) = id_val.as_u64() {
+                                data.run_id = Some(id_u64.to_string());
+                            }
                         }
                     }
+                },
+                Err(e) => {
+                    eprintln!("Erreur lors de l'envoi de la télémétrie : {}", e);
                 }
             }
         }
