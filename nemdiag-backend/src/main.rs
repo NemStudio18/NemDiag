@@ -3,14 +3,17 @@ use axum::{
     Router,
     Json,
     extract::State,
-    http::Method,
+    http::{Method, HeaderMap, StatusCode},
+    response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool, Row};
+
+const API_TOKEN: &str = "Bearer n3mdi4g_s3cr3t_2026";
 use std::str::FromStr;
 
 #[derive(Clone)]
@@ -84,9 +87,9 @@ async fn main() {
     let state = AppState { db: pool };
 
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any)
-        .allow_headers(Any);
+        .allow_methods([Method::POST])
+        .allow_origin("https://nemdiag.nhtml.ynh.fr".parse::<axum::http::HeaderValue>().unwrap())
+        .allow_headers(tower_http::cors::Any);
 
     let app = Router::new()
         .route("/api/telemetry", post(handle_telemetry))
@@ -95,15 +98,29 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(state));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    tracing::info!("Server listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    if let Ok(listener) = tokio::net::TcpListener::bind("0.0.0.0:8080").await {
+        tracing::info!("Server listening on {}", listener.local_addr().unwrap_or_else(|_| "unknown".parse().unwrap()));
+        let _ = axum::serve(listener, app).await;
+    } else {
+        tracing::error!("Failed to bind to port 8080");
+    }
+}
+
+async fn check_auth(headers: &HeaderMap) -> bool {
+    headers.get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .map(|h| h == API_TOKEN)
+        .unwrap_or(false)
 }
 
 async fn handle_telemetry(
+    headers: HeaderMap,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<TelemetryPayload>,
-) -> String {
+) -> impl IntoResponse {
+    if !check_auth(&headers).await {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    }
     let system_details_str = payload.system_details.map(|v| v.to_string());
 
     let result = sqlx::query(
@@ -124,20 +141,24 @@ async fn handle_telemetry(
 
     match result {
         Ok(_) => {
-            tracing::info!("Saved telemetry data to SQLite.");
-            "OK".to_string()
+            tracing::info!("Saved telemetry data to MySQL.");
+            (StatusCode::OK, "OK").into_response()
         },
         Err(e) => {
             tracing::error!("Failed to insert telemetry: {}", e);
-            "Error".to_string()
+            (StatusCode::INTERNAL_SERVER_ERROR, "Error").into_response()
         }
     }
 }
 
 async fn handle_crash(
+    headers: HeaderMap,
     State(state): State<Arc<AppState>>,
     body: String,
-) -> String {
+) -> impl IntoResponse {
+    if !check_auth(&headers).await {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    }
     let result = sqlx::query("INSERT INTO crashes (log) VALUES (?)")
         .bind(body)
         .execute(&state.db)
@@ -145,12 +166,12 @@ async fn handle_crash(
 
     match result {
         Ok(_) => {
-            tracing::info!("Saved crash log to SQLite.");
-            "OK".to_string()
+            tracing::info!("Saved crash log to MySQL.");
+            (StatusCode::OK, "OK").into_response()
         },
         Err(e) => {
             tracing::error!("Failed to insert crash log: {}", e);
-            "Error".to_string()
+            (StatusCode::INTERNAL_SERVER_ERROR, "Error").into_response()
         }
     }
 }

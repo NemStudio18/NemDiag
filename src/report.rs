@@ -217,6 +217,7 @@ pub fn generate_report(
             
             match client.post("https://diag-nem.flexcb.fr/api/telemetry.php")
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer n3mdi4g_s3cr3t_2026")
                 .body(telemetry_json)
                 .send() {
                 Ok(resp) => {
@@ -239,4 +240,21 @@ pub fn generate_report(
     
     let json = serde_json::to_string_pretty(&data).map_err(|e| format!("Failed to serialize: {}", e))?;
     Ok(json) // We return the JSON content directly to frontend instead of just the path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nvidia_gpu_data_serialize() {
+        let data = NvidiaGpuData {
+            name: "RTX 4090".to_string(),
+            temperature: 65,
+            utilization: 99,
+        };
+        let json = serde_json::to_string(&data).unwrap();
+        assert!(json.contains("RTX 4090"));
+        assert!(json.contains("65"));
+    }
 }

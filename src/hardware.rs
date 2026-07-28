@@ -384,4 +384,19 @@ mod tests {
             println!("=== USB DETAILS ===\n{}", info.usb_details);
         }
     }
+    #[test]
+    fn test_hardware_monitor_init() {
+        let mut monitor = HardwareMonitor::new();
+        let info = monitor.get_static_info();
+        assert!(!info.os_name.is_empty(), "OS name should not be empty");
+        assert!(info.memory_total > 0, "Memory should be > 0");
+    }
+
+    #[test]
+    fn test_cpu_usage() {
+        let mut monitor = HardwareMonitor::new();
+        monitor.refresh();
+        let usage = monitor.get_cpu_usage();
+        assert!(usage >= 0.0 && usage <= 100.0, "CPU usage out of bounds");
+    }
 }

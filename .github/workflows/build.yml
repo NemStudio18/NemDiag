@@ -65,6 +65,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
+        prerelease: true
         files: |
           target/debian/*.deb
           **/*.AppImage

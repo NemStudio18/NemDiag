@@ -139,27 +139,27 @@ fn cancel_test() {
 }
 
 #[tauri::command]
-fn get_realtime_stats(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> RealtimeInfo {
-    let mut monitor = state.lock().unwrap();
+fn get_realtime_stats(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> Result<RealtimeInfo, String> {
+    let mut monitor = state.lock().map_err(|_| "Failed to lock hardware monitor".to_string())?;
     monitor.refresh();
-    RealtimeInfo {
+    Ok(RealtimeInfo {
         cpu_usage: monitor.get_cpu_usage(),
         memory_used: monitor.get_static_info().memory_used,
         temperatures: monitor.get_temperatures(),
         fan_speeds: monitor.get_fan_speeds(),
-    }
+    })
 }
 
 #[tauri::command]
-fn get_sys_info(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> SysInfo {
-    let monitor = state.lock().unwrap();
+fn get_sys_info(state: tauri::State<std::sync::Mutex<HardwareMonitor>>) -> Result<SysInfo, String> {
+    let monitor = state.lock().map_err(|_| "Failed to lock hardware monitor".to_string())?;
     let info = monitor.get_static_info();
-    SysInfo {
+    Ok(SysInfo {
         os_name: info.os_name,
         kernel_version: info.kernel_version,
         cpu_name: info.cpu_name,
         memory_total_mb: info.memory_total / 1024 / 1024,
-    }
+    })
 }
 
 #[derive(serde::Serialize)]
@@ -176,11 +176,14 @@ async fn get_companion_advice(state: tauri::State<'_, std::sync::Mutex<HardwareM
     let drivers_advice;
     
     let (ram_total_mb, core_count, temps) = {
-        let mut monitor = state.lock().unwrap();
-        monitor.refresh();
-        let info = monitor.get_static_info();
-        let temps = monitor.get_temperatures();
-        (info.memory_total / 1024 / 1024, info.core_count, temps)
+        if let Ok(mut monitor) = state.lock() {
+            monitor.refresh();
+            let info = monitor.get_static_info();
+            let temps = monitor.get_temperatures();
+            (info.memory_total / 1024 / 1024, info.core_count, temps)
+        } else {
+            return Err("Failed to lock hardware monitor".to_string());
+        }
     };
     
     // CPU & RAM Scores
@@ -447,7 +450,7 @@ async fn run_smart_and_export(user_id: String, state: tauri::State<'_, std::sync
     let r_score = LAST_RAM_SCORE.load(Ordering::Relaxed);
     let d_score = LAST_DISK_SCORE.load(Ordering::Relaxed);
 
-    let monitor = state.lock().unwrap();
+    let monitor = state.lock().map_err(|_| "Failed to lock hardware monitor".to_string())?;
     match generate_report(&*monitor, c_score, g_score, r_score, d_score, user_id) {
         Ok(path) => Ok(path),
         Err(e) => Err(format!("Erreur: {}", e)),
@@ -527,6 +530,7 @@ fn main() {
         let _ = thread::spawn(move || {
             if let Ok(client) = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(2)).build() {
                 let _ = client.post("https://nemdiag.nhtml.ynh.fr/api/crash")
+                    .header("Authorization", "Bearer n3mdi4g_s3cr3t_2026")
                     .body(payload)
                     .send();
             }
